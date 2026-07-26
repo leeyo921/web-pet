@@ -1,0 +1,967 @@
+{
+  "version": 2,
+  "referenceHeight": 692,
+  "states": {
+    "idle": {
+      "hold": true,
+      "frames": [
+        {
+          "src": "assets/idle.webp?v=990cbda49c",
+          "width": 1024,
+          "height": 692,
+          "heightScale": 0.9494
+        }
+      ],
+      "areaScale": 1
+    },
+    "walk": {
+      "cycleMs": 1500,
+      "locomotion": true,
+      "frames": [
+        {
+          "src": "assets/walk01.webp?v=491172d8a4",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.3778
+        },
+        {
+          "src": "assets/walk02.webp?v=cb2a2164cc",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.3901
+        },
+        {
+          "src": "assets/walk03.webp?v=3a29b17000",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.3942
+        },
+        {
+          "src": "assets/walk04.webp?v=9f7e29496c",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.3942
+        },
+        {
+          "src": "assets/walk05.webp?v=90a79d7e38",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.3901
+        },
+        {
+          "src": "assets/walk06.webp?v=6ca904b8b6",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.3778
+        },
+        {
+          "src": "assets/walk07.webp?v=6be488a6cb",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.386
+        },
+        {
+          "src": "assets/walk08.webp?v=8d5d59deaa",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.3901
+        },
+        {
+          "src": "assets/walk09.webp?v=b1c73e09ed",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.3901
+        }
+      ],
+      "areaScale": 1.0106
+    },
+    "run": {
+      "cycleMs": 1500,
+      "locomotion": true,
+      "frames": [
+        {
+          "src": "assets/run01.webp?v=bf89506301",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2504
+        },
+        {
+          "src": "assets/run02.webp?v=61b700bfec",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2125
+        },
+        {
+          "src": "assets/run03.webp?v=fba13f2753",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.3552
+        },
+        {
+          "src": "assets/run04.webp?v=22b9cd86bb",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2504
+        },
+        {
+          "src": "assets/run05.webp?v=4351082799",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1929
+        },
+        {
+          "src": "assets/run06.webp?v=0be4c2879c",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2356
+        },
+        {
+          "src": "assets/run07.webp?v=112eb328e0",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.3447
+        },
+        {
+          "src": "assets/run08.webp?v=f8c2221054",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2627
+        },
+        {
+          "src": "assets/run09.webp?v=b547ad085a",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2153
+        }
+      ],
+      "areaScale": 1.1235
+    },
+    "lie": {
+      "cycleMs": 2167,
+      "frames": [
+        {
+          "src": "assets/lie01.webp?v=fb5c236719",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7439
+        },
+        {
+          "src": "assets/lie02.webp?v=7fd93ec26a",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7516
+        },
+        {
+          "src": "assets/lie03.webp?v=5b8c7c38c3",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7363
+        },
+        {
+          "src": "assets/lie04.webp?v=88f7afe579",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7439
+        },
+        {
+          "src": "assets/lie05.webp?v=82e0f7aeb8",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7439
+        },
+        {
+          "src": "assets/lie06.webp?v=d9613d0398",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7439
+        },
+        {
+          "src": "assets/lie07.webp?v=0add10ca23",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7363
+        },
+        {
+          "src": "assets/lie08.webp?v=423b097fc0",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7439
+        },
+        {
+          "src": "assets/lie09.webp?v=6fc2382c33",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7439
+        },
+        {
+          "src": "assets/lie10.webp?v=f7098decb1",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7439
+        },
+        {
+          "src": "assets/lie11.webp?v=81953a5392",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7439
+        },
+        {
+          "src": "assets/lie12.webp?v=41240de719",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7363
+        },
+        {
+          "src": "assets/lie13.webp?v=cebc808848",
+          "width": 1023,
+          "height": 417,
+          "heightScale": 0.7363
+        }
+      ],
+      "areaScale": 0.7691
+    },
+    "loaf": {
+      "hold": true,
+      "frames": [
+        {
+          "src": "assets/loaf.webp?v=7f696a1f1d",
+          "width": 685,
+          "height": 570,
+          "heightScale": 0.7369
+        }
+      ],
+      "areaScale": 1.1319
+    },
+    "sleep": {
+      "hold": true,
+      "frames": [
+        {
+          "src": "assets/sleep.webp?v=a6746d0176",
+          "width": 780,
+          "height": 525,
+          "heightScale": 0.7181
+        }
+      ],
+      "areaScale": 1.003
+    },
+    "sleep2": {
+      "hold": true,
+      "frames": [
+        {
+          "src": "assets/sleep2.webp?v=47d9f773ef",
+          "width": 1157,
+          "height": 566,
+          "heightScale": 0.893
+        }
+      ],
+      "areaScale": 0.8695
+    },
+    "groom": {
+      "cycleMs": 4000,
+      "frames": [
+        {
+          "src": "assets/groom01.webp?v=e893dc5aad",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2106
+        },
+        {
+          "src": "assets/groom02.webp?v=4cb16dbd0a",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.228
+        },
+        {
+          "src": "assets/groom03.webp?v=8c44fbbaba",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2643
+        },
+        {
+          "src": "assets/groom04.webp?v=8e890e22e7",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2769
+        },
+        {
+          "src": "assets/groom05.webp?v=a3ad4a5ac2",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2737
+        },
+        {
+          "src": "assets/groom06.webp?v=71ea998a8b",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2551
+        },
+        {
+          "src": "assets/groom07.webp?v=9965713aa1",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2339
+        },
+        {
+          "src": "assets/groom08.webp?v=e88f843f16",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2612
+        },
+        {
+          "src": "assets/groom09.webp?v=01281f30df",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.252
+        },
+        {
+          "src": "assets/groom10.webp?v=e4180cdeb4",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2398
+        },
+        {
+          "src": "assets/groom11.webp?v=93e99647d2",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2489
+        },
+        {
+          "src": "assets/groom12.webp?v=738a45cfc7",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2769
+        },
+        {
+          "src": "assets/groom13.webp?v=a4e5ccc023",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2612
+        },
+        {
+          "src": "assets/groom14.webp?v=69e7b085aa",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2643
+        },
+        {
+          "src": "assets/groom15.webp?v=3045e50a4f",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2769
+        },
+        {
+          "src": "assets/groom16.webp?v=de8d07b1dd",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2769
+        },
+        {
+          "src": "assets/groom17.webp?v=4f987cd28d",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2643
+        },
+        {
+          "src": "assets/groom18.webp?v=9da7b52268",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2643
+        },
+        {
+          "src": "assets/groom19.webp?v=c7c6eddd35",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2643
+        },
+        {
+          "src": "assets/groom20.webp?v=8d9ae123d2",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2489
+        },
+        {
+          "src": "assets/groom21.webp?v=cdaa8dc9ad",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2369
+        },
+        {
+          "src": "assets/groom22.webp?v=267aa32db9",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.228
+        },
+        {
+          "src": "assets/groom23.webp?v=501ff1d7f4",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.2163
+        },
+        {
+          "src": "assets/groom24.webp?v=552361cab5",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1937
+        }
+      ],
+      "areaScale": 1.1139
+    },
+    "stretch": {
+      "cycleMs": 4000,
+      "once": true,
+      "frames": [
+        {
+          "src": "assets/stretch01.webp?v=dec4249923",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.4081
+        },
+        {
+          "src": "assets/stretch02.webp?v=3d9815e8a5",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.4672
+        },
+        {
+          "src": "assets/stretch03.webp?v=a27fa8a333",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5204
+        },
+        {
+          "src": "assets/stretch04.webp?v=fb501c9629",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.6139
+        },
+        {
+          "src": "assets/stretch05.webp?v=ffad899786",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.6921
+        },
+        {
+          "src": "assets/stretch06.webp?v=4fc8fb090e",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.6785
+        },
+        {
+          "src": "assets/stretch07.webp?v=23c3597616",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.6392
+        },
+        {
+          "src": "assets/stretch08.webp?v=dcf4b9cc37",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5895
+        },
+        {
+          "src": "assets/stretch09.webp?v=3ac6a85513",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5775
+        },
+        {
+          "src": "assets/stretch10.webp?v=e1c807c1ab",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5716
+        },
+        {
+          "src": "assets/stretch11.webp?v=5273b07f2f",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5542
+        },
+        {
+          "src": "assets/stretch12.webp?v=df194a86b4",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5427
+        },
+        {
+          "src": "assets/stretch13.webp?v=4d0f78402f",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5427
+        },
+        {
+          "src": "assets/stretch14.webp?v=c718baa59d",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5315
+        },
+        {
+          "src": "assets/stretch15.webp?v=4eb845d9e1",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5315
+        },
+        {
+          "src": "assets/stretch16.webp?v=e6717b0638",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5427
+        },
+        {
+          "src": "assets/stretch17.webp?v=cd260d6376",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5427
+        },
+        {
+          "src": "assets/stretch18.webp?v=09b901a291",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5427
+        },
+        {
+          "src": "assets/stretch19.webp?v=e93e5f227a",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5427
+        },
+        {
+          "src": "assets/stretch20.webp?v=c5044c2106",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5542
+        },
+        {
+          "src": "assets/stretch21.webp?v=b3bb86a690",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5427
+        },
+        {
+          "src": "assets/stretch22.webp?v=0e981741cb",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.5427
+        },
+        {
+          "src": "assets/stretch23.webp?v=6c6cde54d1",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.488
+        },
+        {
+          "src": "assets/stretch24.webp?v=4ad4621abd",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.4034
+        }
+      ],
+      "areaScale": 0.9106
+    },
+    "climb": {
+      "cycleMs": 2000,
+      "frames": [
+        {
+          "src": "assets/climb01.webp?v=d6ee18c704",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1682
+        },
+        {
+          "src": "assets/climb02.webp?v=cb15fb0aae",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.178
+        },
+        {
+          "src": "assets/climb03.webp?v=90a3999a6a",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.178
+        },
+        {
+          "src": "assets/climb04.webp?v=d533ceaca7",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1447
+        },
+        {
+          "src": "assets/climb05.webp?v=ddab33639a",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1222
+        },
+        {
+          "src": "assets/climb06.webp?v=74ccfc9592",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1133
+        },
+        {
+          "src": "assets/climb07.webp?v=512a16c594",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1401
+        },
+        {
+          "src": "assets/climb08.webp?v=98361cd749",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.178
+        },
+        {
+          "src": "assets/climb09.webp?v=cffecede4e",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.178
+        },
+        {
+          "src": "assets/climb10.webp?v=c717c7b948",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1401
+        },
+        {
+          "src": "assets/climb11.webp?v=a797bc16f5",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1133
+        },
+        {
+          "src": "assets/climb12.webp?v=6e70dea43a",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1133
+        },
+        {
+          "src": "assets/climb13.webp?v=5bc0b78355",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.1401
+        }
+      ],
+      "areaScale": 1.2322
+    },
+    "fall": {
+      "cycleMs": 700,
+      "once": true,
+      "frames": [
+        {
+          "src": "assets/fall01.webp?v=a7f79b1e03",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 0.7433
+        },
+        {
+          "src": "assets/fall02.webp?v=80acbb5ec4",
+          "width": 1024,
+          "height": 1024,
+          "heightScale": 1.7077
+        }
+      ],
+      "areaScale": 0.8227
+    },
+    "watch": {
+      "cycleMs": 4000,
+      "once": true,
+      "frames": [
+        {
+          "src": "assets/watch01.webp?v=288df476ce",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9105
+        },
+        {
+          "src": "assets/watch02.webp?v=4c813ebbac",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9091
+        },
+        {
+          "src": "assets/watch03.webp?v=88ae276c77",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.912
+        },
+        {
+          "src": "assets/watch04.webp?v=6d5f6625d5",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9135
+        },
+        {
+          "src": "assets/watch05.webp?v=a5b0d53a64",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.918
+        },
+        {
+          "src": "assets/watch06.webp?v=4632be762d",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9209
+        },
+        {
+          "src": "assets/watch07.webp?v=af7618d8c1",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9225
+        },
+        {
+          "src": "assets/watch08.webp?v=03db6dbc48",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.924
+        },
+        {
+          "src": "assets/watch09.webp?v=bc1652bce2",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9256
+        },
+        {
+          "src": "assets/watch10.webp?v=c0dde3726c",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.924
+        },
+        {
+          "src": "assets/watch11.webp?v=ac936f4175",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.924
+        },
+        {
+          "src": "assets/watch12.webp?v=30b977766d",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9195
+        },
+        {
+          "src": "assets/watch13.webp?v=41610a0ef2",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.915
+        },
+        {
+          "src": "assets/watch14.webp?v=5d1b45c289",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9135
+        },
+        {
+          "src": "assets/watch15.webp?v=5e5a334ec1",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9105
+        },
+        {
+          "src": "assets/watch16.webp?v=bc6ebf50dd",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9105
+        },
+        {
+          "src": "assets/watch17.webp?v=58d74b027e",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.912
+        },
+        {
+          "src": "assets/watch18.webp?v=617da3a638",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9105
+        },
+        {
+          "src": "assets/watch19.webp?v=27aadda227",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.915
+        },
+        {
+          "src": "assets/watch20.webp?v=5fd83e884e",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9195
+        },
+        {
+          "src": "assets/watch21.webp?v=65bb643e48",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.9195
+        },
+        {
+          "src": "assets/watch22.webp?v=1c5a7543ce",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.918
+        },
+        {
+          "src": "assets/watch23.webp?v=e60fff7bc4",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.915
+        },
+        {
+          "src": "assets/watch24.webp?v=576bb53fcf",
+          "width": 680,
+          "height": 863,
+          "heightScale": 0.912
+        }
+      ],
+      "areaScale": 1.4466
+    },
+    "nuzzle": {
+      "cycleMs": 4000,
+      "once": true,
+      "frames": [
+        {
+          "src": "assets/nuzzle01.webp?v=f64a22cb3c",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle02.webp?v=a4713513be",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle03.webp?v=986bec97fc",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle04.webp?v=ed709e8852",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle05.webp?v=f1d00789ed",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle06.webp?v=bc9b26c7ec",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle07.webp?v=27bcf965ca",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle08.webp?v=11579ea4c6",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle09.webp?v=07518aff75",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle10.webp?v=4224f05dba",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle11.webp?v=91f016898b",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle12.webp?v=5c139cfdbf",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle13.webp?v=10b0febb19",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle14.webp?v=081c45406e",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle15.webp?v=b5bb6edbbd",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle16.webp?v=6418282e85",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle17.webp?v=88f9cf9286",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle18.webp?v=f56b9e6675",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle19.webp?v=bd47ca4536",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle20.webp?v=ebe429664c",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle21.webp?v=95f0c91865",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle22.webp?v=878771af49",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle23.webp?v=c1b487f9f2",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        },
+        {
+          "src": "assets/nuzzle24.webp?v=bfe6fa3f17",
+          "width": 1022,
+          "height": 605,
+          "heightScale": 0.865
+        }
+      ],
+      "areaScale": 0.9595
+    }
+  },
+  "audio": "assets/purr.mp3?v=cc092c6975"
+}
