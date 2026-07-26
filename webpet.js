@@ -338,6 +338,7 @@ export class WebPet extends HTMLElement {
       const states = ['idle', 'walk', 'run', 'loaf', 'sleep', 'sleep2', 'lie', 'groom', 'stretch', 'climb', 'watch', 'fall'];
       const next = states[(states.indexOf(this.#state) + 1) % states.length];
       if (next === 'climb') this.#climb();
+      else if (next === 'walk' || next === 'run') this.#wander(next);
       else this.#play(next, { thenIdle: next === 'watch' || next === 'fall' });
       this.#schedule();
     }, 260);
