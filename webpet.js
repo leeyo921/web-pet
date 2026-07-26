@@ -98,6 +98,7 @@ export class WebPet extends HTMLElement {
   #x = 0;
   #y = 0;
   #drag = null;
+  #throw = null;
   #clickTimer = 0;
   #loaded = new Set();
   #motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
@@ -358,77 +359,89 @@ export class WebPet extends HTMLElement {
   #dragStart(event) {
     if (event.button !== 0) return;
     cancelAnimationFrame(this.#moveRaf);
-    this.#drag = { id: event.pointerId, startX: event.clientX, startY: event.clientY, x: this.#x, y: this.#y, moved: false, lastX: event.clientX, lastY: event.clientY, lastT: performance.now(), vx: 0, vy: 0 };
+    this.#drag = {
+      id: event.pointerId,
+      offsetX: event.clientX - this.#x,
+      offsetY: event.clientY - this.#y,
+      moved: false,
+      samples: [{ x: event.clientX, y: event.clientY, t: performance.now() }],
+    };
     this.#stage.setPointerCapture(event.pointerId);
   }
 
   #dragMove(event) {
     if (!this.#drag || event.pointerId !== this.#drag.id) return;
-    const dx = event.clientX - this.#drag.startX;
-    const dy = event.clientY - this.#drag.startY;
-    if (Math.hypot(dx, dy) > 5) this.#drag.moved = true;
-    this.#x = this.#drag.x + dx;
-    this.#y = this.#drag.y + dy;
+    const dx = event.clientX - (this.#drag.offsetX + this.#x);
+    const dy = event.clientY - (this.#drag.offsetY + this.#y);
+    if (Math.hypot(dx, dy) > 5 || this.#drag.moved) this.#drag.moved = true;
+    this.#x = event.clientX - this.#drag.offsetX;
+    this.#y = event.clientY - this.#drag.offsetY;
     const now = performance.now();
-    const dt = Math.max(1, now - this.#drag.lastT);
-    this.#drag.vx = (event.clientX - this.#drag.lastX) / dt * 1000;
-    this.#drag.vy = (event.clientY - this.#drag.lastY) / dt * 1000;
-    this.#drag.lastX = event.clientX;
-    this.#drag.lastY = event.clientY;
-    this.#drag.lastT = now;
+    this.#drag.samples.push({ x: event.clientX, y: event.clientY, t: now });
+    this.#drag.samples = this.#drag.samples.filter((s) => now - s.t <= 140);
     this.#clampPosition();
   }
 
   #dragEnd(event) {
     if (!this.#drag || event.pointerId !== this.#drag.id) return;
     this.#stage.releasePointerCapture?.(event.pointerId);
-    const vx = this.#drag.vx;
-    const vy = this.#drag.vy;
+    const samples = this.#drag.samples;
     const moved = this.#drag.moved;
     setTimeout(() => { this.#drag = null; }, 0);
-    if (moved && Math.hypot(vx, vy) > 200) {
-      this.#fling(vx, vy);
-    } else {
-      this.#schedule();
-    }
+    const first = samples[0];
+    const last = samples[samples.length - 1];
+    const elapsed = first && last ? Math.max(1, last.t - first.t) : 1;
+    const vx = first && last ? (last.x - first.x) / elapsed : 0;
+    const vy = first && last ? (last.y - first.y) / elapsed : 0;
+    if (moved && this.#startThrow(vx, vy)) return;
+    this.#schedule();
   }
 
-  async #fling(vx, vy) {
-    if (this.#manifest.states.fall) this.#play('fall');
-    let vxp = vx, vyp = vy;
-    const gravity = 1200;
-    const bounce = 0.45;
-    const friction = 0.992;
-    let last = performance.now();
-    const floor = () => {
-      const h = this.#stage.offsetHeight || 100;
-      return innerHeight - h - 4;
+  #startThrow(vx, vy) {
+    const speed = Math.hypot(vx, vy);
+    if (speed < 0.75) return false;
+    this.#throw = {
+      vx: Math.max(-2.8, Math.min(2.8, vx)),
+      vy: Math.max(-2.8, Math.min(2.8, vy)),
+      until: performance.now() + 5000,
     };
-    const ceil = () => { const h = this.#stage.offsetHeight || 100; return h + 4; };
-    await new Promise((resolve) => {
-      this.#moveResolve = resolve;
-      const step = (now) => {
-        const delta = Math.min(40, now - last) / 1000;
-        last = now;
-        vyp += gravity * delta;
-        this.#x += vxp * delta;
-        this.#y += vyp * delta;
-        const w = this.#stage.offsetWidth || 120;
-        if (this.#x < 4) { this.#x = 4; vxp = -vxp * bounce; }
-        if (this.#x > innerWidth - w - 4) { this.#x = innerWidth - w - 4; vxp = -vxp * bounce; }
-        if (this.#y < ceil()) { this.#y = ceil(); vyp = -vyp * bounce; }
-        if (this.#y > floor()) { this.#y = floor(); vyp = -vyp * bounce; vxp *= friction; }
-        this.#applyPosition();
-        if (Math.abs(vyp) < 60 && Math.abs(vxp) < 40 && this.#y >= floor() - 2) {
-          this.#moveResolve = null; resolve(); return;
-        }
-        this.#moveRaf = requestAnimationFrame(step);
-      };
-      this.#moveRaf = requestAnimationFrame(step);
-    });
-    if (this.hasAttribute('paused') || this.#drag) return;
-    await this.#play('idle');
-    this.#schedule();
+    this.#play('fall');
+    this.#runThrow();
+    return true;
+  }
+
+  #runThrow() {
+    if (!this.#throw) return;
+    const dt = 24;
+    const b = this.#throw;
+    const width = this.#stage.offsetWidth || 120;
+    const height = this.#stage.offsetHeight || 100;
+    const floor = innerHeight - height - 4;
+    const ceil = height + 4;
+    let nx = this.#x + Math.round(b.vx * dt);
+    let ny = this.#y + Math.round(b.vy * dt);
+    b.vy += 0.004 * dt;
+    b.vx *= 0.995;
+    if (nx <= 4 || nx + width >= innerWidth - 4) {
+      nx = Math.max(4, Math.min(innerWidth - width - 4, nx));
+      b.vx *= -0.55;
+    }
+    if (ny >= floor) {
+      ny = floor;
+      if (Math.abs(b.vy) > 0.65) {
+        b.vy *= -0.32;
+      } else {
+        this.#x = nx; this.#y = ny; this.#applyPosition();
+        this.#throw = null;
+        this.#play('idle');
+        this.#schedule();
+        return;
+      }
+    }
+    if (ny < ceil) { ny = ceil; b.vy *= -0.32; }
+    this.#x = nx; this.#y = ny; this.#applyPosition();
+    if (performance.now() > b.until) { this.#throw = null; this.#play('idle'); this.#schedule(); return; }
+    setTimeout(() => this.#runThrow(), dt);
   }
 
   #clampPosition() {
