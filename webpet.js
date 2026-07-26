@@ -254,8 +254,8 @@ export class WebPet extends HTMLElement {
     if (this.#motionQuery.matches || this.hasAttribute('paused')) return;
     this.#scheduler = setTimeout(async () => {
       const r = Math.random();
-      if (innerWidth >= 700 && r < 0.45) await this.#wander(Math.random() < 0.2 ? 'run' : 'walk');
-      else if (r < 0.58) await this.#climb();
+      if (innerWidth >= 700 && r < 0.20) await this.#wander(Math.random() < 0.2 ? 'run' : 'walk');
+      else if (r < 0.80) await this.#climb();
       else await this.#play(['loaf', 'sleep', 'sleep2', 'lie', 'groom', 'stretch', 'watch'][Math.floor(Math.random() * 7)], { thenIdle: true });
       this.#schedule();
     }, 6500 + Math.random() * 5000);
