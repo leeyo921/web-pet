@@ -274,7 +274,6 @@ export class WebPet extends HTMLElement {
         last = now;
         this.#y -= 55 * delta;
         if (this.#y <= baseY - climbDist) { this.#moveResolve = null; resolve(); return; }
-        this.#clampPosition();
         this.#applyPosition();
         this.#moveRaf = requestAnimationFrame(step);
       };
@@ -289,7 +288,7 @@ export class WebPet extends HTMLElement {
         const delta = Math.min(40, now - last) / 1000;
         last = now;
         this.#y += 450 * delta;
-        if (this.#y >= baseY) { this.#y = baseY; this.#applyPosition(); this.#moveResolve = null; resolve(); return; }
+        if (this.#y >= baseY) { this.#y = baseY; this.#clampPosition(); this.#moveResolve = null; resolve(); return; }
         this.#applyPosition();
         this.#moveRaf = requestAnimationFrame(step);
       };
