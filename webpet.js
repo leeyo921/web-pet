@@ -53,6 +53,30 @@ template.innerHTML = `
     :host([state="sleep2"]) .stage { animation: breathe 5s ease-in-out infinite; }
     :host([dragging]) .stage { animation: dangle 0.6s ease-in-out infinite; }
     @keyframes dangle { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+    .zzz {
+      position: absolute;
+      left: 60%;
+      bottom: 90%;
+      font: 700 26px/1 system-ui, sans-serif;
+      color: rgba(7, 19, 23, .25);
+      pointer-events: none;
+    }
+    .zzz span {
+      display: inline-block;
+      opacity: 0;
+    }
+    :host([state="sleep"]) .zzz span,
+    :host([state="sleep2"]) .zzz span { animation: zzzFloat 2.8s ease-out infinite; }
+    :host([state="sleep"]) .zzz span:nth-child(2),
+    :host([state="sleep2"]) .zzz span:nth-child(2) { animation-delay: .4s; font-size: 20px; }
+    :host([state="sleep"]) .zzz span:nth-child(3),
+    :host([state="sleep2"]) .zzz span:nth-child(3) { animation-delay: .8s; font-size: 14px; }
+    @keyframes zzzFloat {
+      0% { opacity: 0; transform: translate(0, 0) scale(.6); }
+      20% { opacity: 1; transform: translate(3px, -3px) scale(.9); }
+      80% { opacity: .5; transform: translate(10px, -18px) scale(1); }
+      100% { opacity: 0; transform: translate(14px, -26px) scale(.7); }
+    }
     .hint {
       position: absolute;
       left: 50%;
@@ -80,6 +104,7 @@ template.innerHTML = `
   <button class="stage" type="button" aria-label="网页桌宠：单击切换姿态，双击卖萌，拖动可移动" disabled>
     <img class="sprite" alt="雪爪桌宠" draggable="false" />
     <span class="hint" aria-hidden="true">点我切姿态 · 双击会卖萌</span>
+    <span class="zzz" aria-hidden="true"><span>z</span><span>z</span><span>z</span></span>
   </button>
 `;
 
