@@ -341,7 +341,6 @@ export class WebPet extends HTMLElement {
   }
 
   #singleClick() {
-    if (this.#drag?.moved) return;
     clearTimeout(this.#clickTimer);
     this.#clickTimer = setTimeout(() => {
       const states = ['idle', 'walk', 'run', 'lie', 'loaf', 'groom', 'sleep2', 'sleep', 'stretch', 'watch', 'climb'];
@@ -402,14 +401,21 @@ export class WebPet extends HTMLElement {
     this.#stage.releasePointerCapture?.(event.pointerId);
     const samples = this.#drag.samples;
     const moved = this.#drag.moved;
-    setTimeout(() => { this.#drag = null; }, 0);
+    this.#drag = null;
     this.removeAttribute('dragging');
+    // 纯点击（没拖动）：切回 idle 让 singleClick 正常处理
+    if (!moved) {
+      this.#play('idle');
+      this.#schedule();
+      return;
+    }
     const first = samples[0];
     const last = samples[samples.length - 1];
     const elapsed = first && last ? Math.max(1, last.t - first.t) : 1;
     const vx = first && last ? (last.x - first.x) / elapsed : 0;
     const vy = first && last ? (last.y - first.y) / elapsed : 0;
-    if (moved && this.#startThrow(vx, vy)) return;
+    if (this.#startThrow(vx, vy)) return;
+    this.#play('idle');
     this.#schedule();
   }
 
