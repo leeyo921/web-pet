@@ -48,9 +48,11 @@ template.innerHTML = `
     }
     :host([direction="left"]) .sprite { transform: scaleX(-1); }
     :host([state="idle"]) .stage,
-    :host([state="loaf"]) .stage,
+    :host([state="loaf"]) .stage { animation: breathe 4s ease-in-out infinite; }
     :host([state="sleep"]) .stage,
-    :host([state="sleep2"]) .stage { animation: breathe 4.8s ease-in-out infinite; }
+    :host([state="sleep2"]) .stage { animation: breathe 5s ease-in-out infinite; }
+    :host([dragging]) .stage { animation: dangle 0.6s ease-in-out infinite; }
+    @keyframes dangle { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
     .hint {
       position: absolute;
       left: 50%;
@@ -265,15 +267,17 @@ export class WebPet extends HTMLElement {
   async #climb() {
     if (this.#drag || !this.#manifest.states.fall) return;
     const baseY = this.#y;
-    const climbDist = 100 + Math.random() * 80;
+    // deskpet: 高度 min(340, 45% 视口高)
+    const climbDist = Math.min(340, Math.round(innerHeight * 0.45));
     await this.#play('climb');
+    // 上升：deskpet 83px/s (2px/24ms tick)
     let last = performance.now();
     await new Promise((resolve) => {
       this.#moveResolve = resolve;
       const step = (now) => {
         const delta = Math.min(40, now - last) / 1000;
         last = now;
-        this.#y -= 55 * delta;
+        this.#y -= 83 * delta;
         if (this.#y <= baseY - climbDist) { this.#moveResolve = null; resolve(); return; }
         this.#applyPosition();
         this.#moveRaf = requestAnimationFrame(step);
@@ -281,22 +285,26 @@ export class WebPet extends HTMLElement {
       this.#moveRaf = requestAnimationFrame(step);
     });
     if (this.hasAttribute('paused') || this.#drag) return;
-    this.#play('fall');
-    last = performance.now();
+    // deskpet: hang 600ms 悬停
+    await new Promise((r) => setTimeout(r, 600));
+    if (this.hasAttribute('paused') || this.#drag) return;
+    // 下落：deskpet 自由落体加速 v=4 初速, 每帧 v=min(28, v+2)
+    if (this.#manifest.states.fall) this.#play('fall');
+    let v = 4;
     await new Promise((resolve) => {
       this.#moveResolve = resolve;
-      const step = (now) => {
-        const delta = Math.min(40, now - last) / 1000;
-        last = now;
-        this.#y += 450 * delta;
-        if (this.#y >= baseY) { this.#y = baseY; this.#clampPosition(); this.#moveResolve = null; resolve(); return; }
+      const step = () => {
+        v = Math.min(28, v + 2);
+        this.#y += v;
+        if (this.#y >= baseY) { this.#y = baseY; this.#applyPosition(); this.#moveResolve = null; resolve(); return; }
         this.#applyPosition();
         this.#moveRaf = requestAnimationFrame(step);
       };
       this.#moveRaf = requestAnimationFrame(step);
     });
-    if (this.hasAttribute('paused')) return;
-    await this.#play('idle');
+    if (this.hasAttribute('paused') || this.#drag) return;
+    // 落地缓冲
+    await this.#land();
   }
 
   async #wander(state) {
@@ -307,7 +315,7 @@ export class WebPet extends HTMLElement {
     const target = 12 + Math.random() * Math.max(1, innerWidth - width - 24);
     const direction = target < this.#x ? -1 : 1;
     this.setAttribute('direction', direction < 0 ? 'left' : 'right');
-    const speed = state === 'run' ? 180 : 70;
+    const speed = state === 'run' ? 250 : 83;
     let last = performance.now();
     await new Promise((resolve) => {
       this.#moveResolve = resolve;
@@ -336,11 +344,11 @@ export class WebPet extends HTMLElement {
     if (this.#drag?.moved) return;
     clearTimeout(this.#clickTimer);
     this.#clickTimer = setTimeout(() => {
-      const states = ['idle', 'walk', 'run', 'loaf', 'sleep', 'sleep2', 'lie', 'groom', 'stretch', 'climb', 'watch', 'fall'];
+      const states = ['idle', 'walk', 'run', 'lie', 'loaf', 'groom', 'sleep2', 'sleep', 'stretch', 'watch', 'climb'];
       const next = states[(states.indexOf(this.#state) + 1) % states.length];
       if (next === 'climb') this.#climb();
       else if (next === 'walk' || next === 'run') this.#wander(next);
-      else this.#play(next, { thenIdle: next === 'watch' || next === 'fall' });
+      else this.#play(next, { thenIdle: next === 'watch' });
       this.#schedule();
     }, 260);
   }
@@ -367,13 +375,20 @@ export class WebPet extends HTMLElement {
       samples: [{ x: event.clientX, y: event.clientY, t: performance.now() }],
     };
     this.#stage.setPointerCapture(event.pointerId);
+    // deskpet: drag 态 = idle 帧 + dangle 摇晃
+    this.#clearPlayback();
+    this.#state = 'drag';
+    this.#frame = 0;
+    this.setAttribute('state', 'drag');
+    this.#showFrame('idle', 0);
+    this.setAttribute('dragging', '');
   }
 
   #dragMove(event) {
     if (!this.#drag || event.pointerId !== this.#drag.id) return;
     const dx = event.clientX - (this.#drag.offsetX + this.#x);
     const dy = event.clientY - (this.#drag.offsetY + this.#y);
-    if (Math.hypot(dx, dy) > 5 || this.#drag.moved) this.#drag.moved = true;
+    if (Math.hypot(dx, dy) > 6 || this.#drag.moved) this.#drag.moved = true;
     this.#x = event.clientX - this.#drag.offsetX;
     this.#y = event.clientY - this.#drag.offsetY;
     const now = performance.now();
@@ -388,6 +403,7 @@ export class WebPet extends HTMLElement {
     const samples = this.#drag.samples;
     const moved = this.#drag.moved;
     setTimeout(() => { this.#drag = null; }, 0);
+    this.removeAttribute('dragging');
     const first = samples[0];
     const last = samples[samples.length - 1];
     const elapsed = first && last ? Math.max(1, last.t - first.t) : 1;
@@ -405,7 +421,9 @@ export class WebPet extends HTMLElement {
       vy: Math.max(-2.8, Math.min(2.8, vy)),
       until: performance.now() + 5000,
     };
-    this.#play('fall');
+    // deskpet: 飞行期间用 drag 态(idle 帧)，落地才显示 fall[1]
+    this.#state = 'drag';
+    this.#showFrame('idle', 0);
     this.#runThrow();
     return true;
   }
@@ -417,7 +435,6 @@ export class WebPet extends HTMLElement {
     const width = this.#stage.offsetWidth || 120;
     const height = this.#stage.offsetHeight || 100;
     const floor = innerHeight - height - 4;
-    const ceil = height + 4;
     let nx = this.#x + Math.round(b.vx * dt);
     let ny = this.#y + Math.round(b.vy * dt);
     b.vy += 0.004 * dt;
@@ -431,17 +448,29 @@ export class WebPet extends HTMLElement {
       if (Math.abs(b.vy) > 0.65) {
         b.vy *= -0.32;
       } else {
+        // 落地：显示 fall[1] 缓冲帧 + react 700ms
         this.#x = nx; this.#y = ny; this.#applyPosition();
         this.#throw = null;
-        this.#play('idle');
-        this.#schedule();
+        this.#land();
         return;
       }
     }
-    if (ny < ceil) { ny = ceil; b.vy *= -0.32; }
     this.#x = nx; this.#y = ny; this.#applyPosition();
-    if (performance.now() > b.until) { this.#throw = null; this.#play('idle'); this.#schedule(); return; }
+    if (performance.now() > b.until) { this.#throw = null; this.#land(); return; }
     setTimeout(() => this.#runThrow(), dt);
+  }
+
+  // deskpet: 落地缓冲，显示 fall[1] 700ms 后回 idle
+  async #land() {
+    if (this.#manifest.states.fall?.frames[1]) {
+      this.#state = 'react';
+      this.setAttribute('state', 'react');
+      this.#showFrame('fall', 1);
+      await new Promise((r) => setTimeout(r, 700));
+    }
+    if (this.hasAttribute('paused') || this.#drag) return;
+    await this.#play('idle');
+    this.#schedule();
   }
 
   #clampPosition() {
