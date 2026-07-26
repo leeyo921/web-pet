@@ -12,8 +12,7 @@
           "heightScale": 0.9494
         }
       ],
-      "areaScale": 1,
-      "runtimeScale": 1.0006
+      "areaScale": 1
     },
     "walk": {
       "cycleMs": 1500,
@@ -74,8 +73,7 @@
           "heightScale": 1.3901
         }
       ],
-      "areaScale": 1.0106,
-      "runtimeScale": 0.6895
+      "areaScale": 1.0106
     },
     "run": {
       "cycleMs": 1500,
@@ -136,8 +134,7 @@
           "heightScale": 1.2153
         }
       ],
-      "areaScale": 1.1235,
-      "runtimeScale": 0.7598
+      "areaScale": 1.1235
     },
     "lie": {
       "cycleMs": 2167,
@@ -221,8 +218,7 @@
           "heightScale": 0.7363
         }
       ],
-      "areaScale": 0.7691,
-      "runtimeScale": 1.0754
+      "areaScale": 0.7691
     },
     "loaf": {
       "hold": true,
@@ -234,8 +230,7 @@
           "heightScale": 0.7369
         }
       ],
-      "areaScale": 1.1319,
-      "runtimeScale": 1.0856
+      "areaScale": 1.1319
     },
     "sleep": {
       "hold": true,
@@ -247,8 +242,7 @@
           "heightScale": 0.7181
         }
       ],
-      "areaScale": 1.003,
-      "runtimeScale": 1.0862
+      "areaScale": 1.003
     },
     "sleep2": {
       "hold": true,
@@ -260,8 +254,7 @@
           "heightScale": 0.893
         }
       ],
-      "areaScale": 0.8695,
-      "runtimeScale": 0.9183
+      "areaScale": 0.8695
     },
     "groom": {
       "cycleMs": 4000,
@@ -411,8 +404,7 @@
           "heightScale": 1.1937
         }
       ],
-      "areaScale": 1.1139,
-      "runtimeScale": 0.7847
+      "areaScale": 1.1139
     },
     "stretch": {
       "cycleMs": 4000,
@@ -563,8 +555,7 @@
           "heightScale": 1.4034
         }
       ],
-      "areaScale": 0.9106,
-      "runtimeScale": 0.7102
+      "areaScale": 0.9106
     },
     "climb": {
       "cycleMs": 2000,
@@ -648,8 +639,7 @@
           "heightScale": 1.1401
         }
       ],
-      "areaScale": 1.2322,
-      "runtimeScale": 0.8132
+      "areaScale": 1.2322
     },
     "fall": {
       "cycleMs": 700,
@@ -668,8 +658,7 @@
           "heightScale": 1.7077
         }
       ],
-      "areaScale": 0.8227,
-      "runtimeScale": 1.1435
+      "areaScale": 0.8227
     },
     "watch": {
       "cycleMs": 4000,
@@ -820,8 +809,7 @@
           "heightScale": 0.912
         }
       ],
-      "areaScale": 1.4466,
-      "runtimeScale": 1.0434
+      "areaScale": 1.4466
     },
     "nuzzle": {
       "cycleMs": 4000,
@@ -972,8 +960,7 @@
           "heightScale": 0.865
         }
       ],
-      "areaScale": 0.9595,
-      "runtimeScale": 1.0405
+      "areaScale": 0.9595
     }
   },
   "audio": "assets/purr.mp3?v=cc092c6975"
