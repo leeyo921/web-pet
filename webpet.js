@@ -104,6 +104,7 @@ export class WebPet extends HTMLElement {
   #clickTimer = 0;
   #loaded = new Set();
   #motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+  #suppressClick = false;
 
   constructor() {
     super();
@@ -341,6 +342,7 @@ export class WebPet extends HTMLElement {
   }
 
   #singleClick() {
+    if (this.#suppressClick) { this.#suppressClick = false; return; }
     clearTimeout(this.#clickTimer);
     this.#clickTimer = setTimeout(() => {
       const states = ['idle', 'walk', 'run', 'lie', 'loaf', 'groom', 'sleep2', 'sleep', 'stretch', 'watch', 'climb'];
@@ -374,20 +376,23 @@ export class WebPet extends HTMLElement {
       samples: [{ x: event.clientX, y: event.clientY, t: performance.now() }],
     };
     this.#stage.setPointerCapture(event.pointerId);
-    // deskpet: drag 态 = idle 帧 + dangle 摇晃
-    this.#clearPlayback();
-    this.#state = 'drag';
-    this.#frame = 0;
-    this.setAttribute('state', 'drag');
-    this.#showFrame('idle', 0);
-    this.setAttribute('dragging', '');
+    // deskpet: 按下不改变姿态，移动超过阈值才进 drag 态
   }
 
   #dragMove(event) {
     if (!this.#drag || event.pointerId !== this.#drag.id) return;
     const dx = event.clientX - (this.#drag.offsetX + this.#x);
     const dy = event.clientY - (this.#drag.offsetY + this.#y);
-    if (Math.hypot(dx, dy) > 6 || this.#drag.moved) this.#drag.moved = true;
+    if (Math.hypot(dx, dy) > 6 && !this.#drag.moved) {
+      this.#drag.moved = true;
+      // deskpet: 确认移动后才进入 drag 态
+      this.#clearPlayback();
+      this.#state = 'drag';
+      this.#frame = 0;
+      this.setAttribute('state', 'drag');
+      this.#showFrame('idle', 0);
+      this.setAttribute('dragging', '');
+    }
     this.#x = event.clientX - this.#drag.offsetX;
     this.#y = event.clientY - this.#drag.offsetY;
     const now = performance.now();
@@ -399,16 +404,12 @@ export class WebPet extends HTMLElement {
   #dragEnd(event) {
     if (!this.#drag || event.pointerId !== this.#drag.id) return;
     this.#stage.releasePointerCapture?.(event.pointerId);
-    const samples = this.#drag.samples;
     const moved = this.#drag.moved;
+    if (!moved) { this.#drag = null; return; }
+    this.#suppressClick = true;
+    const samples = this.#drag.samples;
     this.#drag = null;
     this.removeAttribute('dragging');
-    // 纯点击（没拖动）：切回 idle 让 singleClick 正常处理
-    if (!moved) {
-      this.#play('idle');
-      this.#schedule();
-      return;
-    }
     const first = samples[0];
     const last = samples[samples.length - 1];
     const elapsed = first && last ? Math.max(1, last.t - first.t) : 1;
