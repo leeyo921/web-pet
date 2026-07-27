@@ -1,6 +1,14 @@
 const COMPONENT_URL = new URL('.', import.meta.url);
 const MANIFEST_URL = new URL('manifest.json', COMPONENT_URL);
 
+// 自动姿态权重（合计 100）：卖萌 nuzzle 是纯交互态，不进入自动池。
+// play / lie / loaf / sleep / sleep2 各 11.6%；睡眠结束另有 80% 概率接 stretch。
+const AUTO_POSE_WEIGHTS = [
+  ['walk', 9], ['run', 6], ['climb', 9],
+  ['play', 11.6], ['lie', 11.6], ['loaf', 11.6], ['sleep', 11.6], ['sleep2', 11.6],
+  ['groom', 6], ['stretch', 6], ['watch', 6],
+];
+
 const template = document.createElement('template');
 template.innerHTML = `
   <style>
@@ -22,7 +30,7 @@ template.innerHTML = `
     :host([hidden]), :host([paused]) { opacity: 0; pointer-events: none; }
     .stage {
       position: absolute;
-      left: 0;
+      left: 50%;
       bottom: 0;
       display: grid;
       place-items: end center;
@@ -32,6 +40,8 @@ template.innerHTML = `
       background: transparent;
       cursor: grab;
       touch-action: none;
+      overflow: visible;
+      transform: translateX(-50%);
       transform-origin: center bottom;
       /* 姿态切换不插值舞台尺寸；插值会让透明画布在动画帧之间产生“忽大忽小”的错觉。 */
       transition: none;
@@ -52,7 +62,10 @@ template.innerHTML = `
     :host([state="sleep"]) .stage,
     :host([state="sleep2"]) .stage { animation: breathe 5s ease-in-out infinite; }
     :host([dragging]) .stage { animation: dangle 0.6s ease-in-out infinite; }
-    @keyframes dangle { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+    @keyframes dangle {
+      0%,100% { transform: translateX(-50%) rotate(-6deg); }
+      50% { transform: translateX(-50%) rotate(6deg); }
+    }
     .zzz {
       position: absolute;
       left: 60%;
@@ -95,7 +108,10 @@ template.innerHTML = `
       transition: opacity .2s ease, transform .2s ease;
     }
     :host([hint]) .hint { opacity: 1; transform: translateX(-50%) translateY(0); }
-    @keyframes breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.012); } }
+    @keyframes breathe {
+      0%, 100% { transform: translateX(-50%) scaleY(1); }
+      50% { transform: translateX(-50%) scaleY(1.012); }
+    }
     @media (max-width: 699px) { :host { --pet-size: 80px; } }
     @media (prefers-reduced-motion: reduce) {
       .stage { transition: none; animation: none !important; }
@@ -223,7 +239,8 @@ export class WebPet extends HTMLElement {
 
   #positionInitially() {
     const mobile = innerWidth < 700;
-    this.#x = Math.max(8, innerWidth - (mobile ? 125 : 225));
+    // x 是舞台中心，而不是左边缘。姿态画布宽度不同，中心仍应保持不变。
+    this.#x = Math.max(8, innerWidth - (mobile ? 85 : 138));
     this.#y = Math.max(8, innerHeight - (mobile ? 10 : 18));
     this.#applyPosition();
   }
@@ -233,18 +250,52 @@ export class WebPet extends HTMLElement {
     return requested > 0 ? requested : (innerWidth < 700 ? 80 : 130);
   }
 
+  #pickAutoPose() {
+    if ((this.#state === 'sleep' || this.#state === 'sleep2')
+      && this.#manifest.states.stretch && Math.random() < 0.8) {
+      return 'stretch';
+    }
+    const allowMovement = innerWidth >= 700;
+    const available = AUTO_POSE_WEIGHTS.filter(([state]) => {
+      if (!allowMovement && (state === 'walk' || state === 'run')) return false;
+      if (!this.#manifest.states[state]) return false;
+      return state !== 'climb' || this.#manifest.states.fall;
+    });
+    const total = available.reduce((sum, [, weight]) => sum + weight, 0);
+    let roll = Math.random() * total;
+    for (const [state, weight] of available) {
+      roll -= weight;
+      if (roll < 0) return state;
+    }
+    return 'idle';
+  }
+
   #showFrame(state, index) {
     const config = this.#manifest.states[state];
     const frame = config.frames[index] || config.frames[0];
     const base = this.#baseSize();
     const scale = Number(config.displayScale || 1) * Number(config.runtimeScale || 1);
-    const height = frame.heightScale * base * scale;
-    const width = height * (frame.width / frame.height);
+    let height = frame.heightScale * base * scale;
+    let width = height * (frame.width / frame.height);
+    // Keep DeskPet's desktop-window fit rule: broad poses such as lie are
+    // capped to 1.7x base width, while nuzzle/play may use the full width.
+    const fullWidth = this.#manifest.fullWidthStates?.includes(state);
+    const fullHeight = this.#manifest.fullHeightStates?.includes(state);
+    // DeskPet 的“全宽”是宠物窗口约 1.9 倍基准尺寸，不是浏览器整个视口宽度。
+    // WebPet 没有独立窗口，因此用同样的窗口宽度上限，避免 nuzzle 卖萌放大到异常。
+    const maxWidth = fullWidth
+      ? Math.min(innerWidth - 4, Math.round(base * 1.9) - 4)
+      : Math.min(innerWidth - 4, Math.round(base * 1.7) - 4);
+    const maxHeight = innerHeight - (fullHeight ? 4 : 34);
+    const fit = Math.min(1, maxWidth / width, maxHeight / height);
+    width *= fit;
+    height *= fit;
     this.#stage.style.width = `${Math.round(width)}px`;
     this.#stage.style.height = `${Math.round(height)}px`;
     this.#sprite.src = new URL(frame.src, COMPONENT_URL);
     this.#sprite.alt = `雪爪桌宠：${state}`;
-    this.#clampPosition();
+    // 姿态切换只替换舞台尺寸，不重新校正宿主位置；否则非移动姿态会
+    // 因透明画布宽高变化被误判为需要平移。边界校正只在 resize/拖拽时进行。
   }
 
   async #play(state, { thenIdle = false } = {}) {
@@ -278,16 +329,35 @@ export class WebPet extends HTMLElement {
     this.#frameTimer = 0;
   }
 
+  #scheduleAfterPose(state) {
+    const cycleMs = Number(this.#manifest.states[state]?.cycleMs || 0);
+    if (cycleMs <= 0) {
+      this.#schedule();
+      return;
+    }
+    clearTimeout(this.#scheduler);
+    this.#scheduler = setTimeout(() => {
+      if (this.#state !== state) return;
+      this.#play('idle');
+      this.#schedule();
+    }, cycleMs);
+  }
+
   #schedule() {
     clearTimeout(this.#scheduler);
     if (this.#motionQuery.matches || this.hasAttribute('paused')) return;
     this.#scheduler = setTimeout(async () => {
-      const r = Math.random();
-      if (innerWidth >= 700 && r < 0.45) await this.#wander(Math.random() < 0.2 ? 'run' : 'walk');
-      else if (r < 0.58) await this.#climb();
-      else await this.#play(['loaf', 'sleep', 'sleep2', 'lie', 'groom', 'stretch', 'watch'][Math.floor(Math.random() * 7)], { thenIdle: true });
+      const state = this.#pickAutoPose();
+      if (state === 'walk' || state === 'run') await this.#wander(state);
+      else if (state === 'climb') await this.#climb();
+      else {
+        await this.#play(state);
+        this.#scheduleAfterPose(state);
+        return;
+      }
       this.#schedule();
-    }, 6500 + Math.random() * 5000);
+    // 动作结束后只保留 1–3 秒 idle 过渡，避免站立状态停留过久。
+    }, 1000 + Math.random() * 2000);
   }
 
   async #climb() {
@@ -338,7 +408,8 @@ export class WebPet extends HTMLElement {
     if (!config || this.#drag) return;
     await this.#play(state);
     const width = this.#stage.offsetWidth || 180;
-    const target = 12 + Math.random() * Math.max(1, innerWidth - width - 24);
+    const target = 12 + width / 2
+      + Math.random() * Math.max(1, innerWidth - width - 24);
     const direction = target < this.#x ? -1 : 1;
     this.setAttribute('direction', direction < 0 ? 'left' : 'right');
     const speed = state === 'run' ? 250 : 83;
@@ -370,12 +441,11 @@ export class WebPet extends HTMLElement {
     if (this.#suppressClick) { this.#suppressClick = false; return; }
     clearTimeout(this.#clickTimer);
     this.#clickTimer = setTimeout(() => {
-      const states = ['idle', 'walk', 'run', 'lie', 'loaf', 'groom', 'sleep2', 'sleep', 'stretch', 'watch', 'climb'];
+      const states = ['idle', 'walk', 'run', 'lie', 'loaf', 'groom', 'sleep2', 'sleep', 'stretch', 'play', 'watch', 'climb'];
       const next = states[(states.indexOf(this.#state) + 1) % states.length];
-      if (next === 'climb') this.#climb();
-      else if (next === 'walk' || next === 'run') this.#wander(next);
-      else this.#play(next, { thenIdle: next === 'watch' });
-      this.#schedule();
+      if (next === 'climb') this.#climb().then(() => this.#schedule());
+      else if (next === 'walk' || next === 'run') this.#wander(next).then(() => this.#schedule());
+      else this.#play(next).then(() => this.#scheduleAfterPose(next));
     }, 260);
   }
 
@@ -386,8 +456,7 @@ export class WebPet extends HTMLElement {
       this.#audio.currentTime = 0;
       this.#audio.play().catch(() => {});
     }
-    this.#play('nuzzle', { thenIdle: true });
-    this.#schedule();
+    this.#play('nuzzle').then(() => this.#scheduleAfterPose('nuzzle'));
   }
 
   #dragStart(event) {
@@ -471,8 +540,8 @@ export class WebPet extends HTMLElement {
     let ny = this.#y + Math.round(b.vy * dt);
     b.vy += 0.004 * dt;
     b.vx *= 0.995;
-    if (nx <= 4 || nx + width >= innerWidth - 4) {
-      nx = Math.max(4, Math.min(innerWidth - width - 4, nx));
+    if (nx - width / 2 <= 4 || nx + width / 2 >= innerWidth - 4) {
+      nx = Math.max(4 + width / 2, Math.min(innerWidth - width / 2 - 4, nx));
       b.vx *= -0.55;
     }
     if (ny >= floor) {
@@ -508,7 +577,8 @@ export class WebPet extends HTMLElement {
   #clampPosition() {
     const width = this.#stage.offsetWidth || 120;
     const height = this.#stage.offsetHeight || 100;
-    this.#x = Math.min(Math.max(4, this.#x), Math.max(4, innerWidth - width - 4));
+    this.#x = Math.min(Math.max(4 + width / 2, this.#x),
+      Math.max(4 + width / 2, innerWidth - width / 2 - 4));
     // y 表示姿态底边的基线，舞台用 bottom:0 向上展开。
     this.#y = Math.min(Math.max(height + 4, this.#y), Math.max(height + 4, innerHeight - 4));
     this.#applyPosition();
