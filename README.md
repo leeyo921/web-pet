@@ -63,6 +63,25 @@ export function WebPet({ paused }: { paused?: boolean }) {
 git submodule add https://github.com/leeyo921/web-pet.git public/webpet
 ```
 
+宿主更新到新版本后，记得同步 `<script src>` 上的 `?v=` 查询串，否则浏览器会继续用
+缓存里的旧 `webpet.js`。
+
+## 开发
+
+运行时零依赖；jsdom 只是测试用的 devDependency。
+
+```bash
+npm install
+npm test
+```
+
+`test/webpet.test.mjs` 覆盖状态机与生命周期：抛掷物理链能否被拖拽/暂停/卸载中断、
+window 监听器是否解绑、hold 态停留时长、移动端是否排除位移姿态。这些时序 bug 手工
+很难复现，改动 `webpet.js` 后务必跑一遍。
+
+jsdom 没有布局引擎（`offsetWidth` 恒为 0），**尺寸相关的行为测不到**——`#showFrame`
+的 fit 计算、各姿态视觉大小是否一致，仍然只能在真浏览器里核对。
+
 ## 资源
 
 - 146 帧 WebP 透明图（2.88 MB）

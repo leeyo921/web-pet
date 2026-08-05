@@ -1,0 +1,23 @@
+{
+  "name": "web-pet",
+  "version": "1.0.0",
+  "description": "浏览器桌宠组件。序列帧动画 + 自发行为 + 可拖拽，原生 Web Component，运行时零依赖。",
+  "type": "module",
+  "main": "webpet.js",
+  "files": [
+    "webpet.js",
+    "manifest.json",
+    "assets"
+  ],
+  "scripts": {
+    "test": "node test/webpet.test.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leeyo921/web-pet.git"
+  },
+  "license": "MIT"
+}
