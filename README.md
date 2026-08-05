@@ -88,6 +88,19 @@ jsdom 没有布局引擎（`offsetWidth` 恒为 0），**尺寸相关的行为�
 - 1 个咕噜声 MP3（42.7 KB）
 - manifest.json 记录每帧尺寸与 heightScale
 
+### 素材从哪来
+
+`assets/` 和 `manifest.json` 是生成产物，不要手改——`heightScale`、`areaScale`、
+`runtimeScale` 都是按 DeskPet 的姿态元数据和 `pose-visual-policy.json` 算出来的，
+手改的数值下次导出就没了。导出脚本在桌宠仓库：
+
+```bash
+# 在 deskpet 仓库里
+WEBPET_DIR=~/code/pawra-saas/public/webpet node scripts/export-webpet-assets.mjs
+```
+
+生成后在本仓库 commit + push，再让各宿主 bump gitlink 并同步 `?v=`。
+
 ### 姿态停留时长
 
 动画姿态用 `cycleMs`（正好放完一轮）决定停留多久。`hold: true` 的静止姿态没有

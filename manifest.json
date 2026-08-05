@@ -238,7 +238,8 @@
           "heightScale": 0.6749
         }
       ],
-      "areaScale": 1
+      "areaScale": 1,
+      "holdMs": 6000
     },
     "sleep": {
       "hold": true,
@@ -250,7 +251,8 @@
           "heightScale": 0.6373
         }
       ],
-      "areaScale": 1
+      "areaScale": 1,
+      "holdMs": 9000
     },
     "sleep2": {
       "hold": true,
@@ -262,7 +264,8 @@
           "heightScale": 0.6864
         }
       ],
-      "areaScale": 1
+      "areaScale": 1,
+      "holdMs": 9000
     },
     "groom": {
       "cycleMs": 4000,
