@@ -9,6 +9,11 @@ const AUTO_POSE_WEIGHTS = [
   ['groom', 6], ['stretch', 6], ['watch', 6],
 ];
 
+// hold 态没有帧动画，manifest 也不给 cycleMs，于是 #scheduleAfterPose 会直接
+// 落回 #schedule() 的 1–3 秒过渡里 —— 睡觉的 zzz 一轮 2.8s 都放不完就被换走。
+// 这里给一组停留时长；manifest 里的 holdMs 优先，没有才用这份默认值。
+const HOLD_DURATIONS = { sleep: 9000, sleep2: 9000, loaf: 6000 };
+
 const template = document.createElement('template');
 template.innerHTML = `
   <style>
@@ -142,10 +147,24 @@ export class WebPet extends HTMLElement {
   #y = 0;
   #drag = null;
   #throw = null;
+  #throwTimer = 0;
   #clickTimer = 0;
+  #bound = false;
   #loaded = new Set();
   #motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
   #suppressClick = false;
+
+  // window / document 上的监听必须能解绑，否则元素被移除后闭包仍持有 this，
+  // 既泄漏又会在重新挂载时叠加一份 handler。
+  #onResize = () => {
+    if (this.#manifest) this.#showFrame(this.#state, this.#frame);
+    this.#clampPosition();
+  };
+
+  #onVisibilityChange = () => {
+    if (document.hidden) this.#stopTimers();
+    else if (this.#manifest) { this.#play('idle'); this.#schedule(); }
+  };
 
   constructor() {
     super();
@@ -157,6 +176,14 @@ export class WebPet extends HTMLElement {
 
   connectedCallback() {
     this.#bind();
+    addEventListener('resize', this.#onResize, { passive: true });
+    document.addEventListener('visibilitychange', this.#onVisibilityChange);
+    if (this.#manifest) {
+      // 重新挂载：manifest 已在手，直接恢复循环，不必再走一遍 #initialize。
+      this.#play('idle');
+      this.#schedule();
+      return;
+    }
     this.#initialize().catch((error) => {
       console.error('WebPet 初始化失败', error);
       this.hidden = true;
@@ -164,6 +191,8 @@ export class WebPet extends HTMLElement {
   }
 
   disconnectedCallback() {
+    removeEventListener('resize', this.#onResize);
+    document.removeEventListener('visibilitychange', this.#onVisibilityChange);
     this.#stopTimers();
     this.#audio?.pause();
   }
@@ -208,6 +237,9 @@ export class WebPet extends HTMLElement {
   }
 
   #bind() {
+    // shadow DOM 里的监听跟着元素走，不会泄漏到外面，但重新挂载会叠加，绑一次即可。
+    if (this.#bound) return;
+    this.#bound = true;
     this.#stage.addEventListener('pointerdown', (event) => this.#dragStart(event));
     this.#stage.addEventListener('pointermove', (event) => this.#dragMove(event));
     this.#stage.addEventListener('pointerup', (event) => this.#dragEnd(event));
@@ -216,14 +248,6 @@ export class WebPet extends HTMLElement {
     this.#stage.addEventListener('dblclick', (event) => this.#doubleClick(event));
     this.#stage.addEventListener('pointerenter', () => this.#showHintOnce(), { once: true });
     this.#stage.addEventListener('focus', () => this.#showHintOnce(), { once: true });
-    addEventListener('resize', () => {
-      if (this.#manifest) this.#showFrame(this.#state, this.#frame);
-      this.#clampPosition();
-    }, { passive: true });
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) this.#stopTimers();
-      else if (this.#manifest) { this.#play('idle'); this.#schedule(); }
-    });
   }
 
   async #preload(state) {
@@ -257,7 +281,9 @@ export class WebPet extends HTMLElement {
     }
     const allowMovement = innerWidth >= 700;
     const available = AUTO_POSE_WEIGHTS.filter(([state]) => {
-      if (!allowMovement && (state === 'walk' || state === 'run')) return false;
+      // climb 也是位移姿态（爬升 + 自由落体），移动端一并排除，
+      // 与 README 承诺的“移动端不游荡，仅静止姿态”保持一致。
+      if (!allowMovement && (state === 'walk' || state === 'run' || state === 'climb')) return false;
       if (!this.#manifest.states[state]) return false;
       return state !== 'climb' || this.#manifest.states.fall;
     });
@@ -283,9 +309,13 @@ export class WebPet extends HTMLElement {
     const fullHeight = this.#manifest.fullHeightStates?.includes(state);
     // DeskPet 的“全宽”是宠物窗口约 1.9 倍基准尺寸，不是浏览器整个视口宽度。
     // WebPet 没有独立窗口，因此用同样的窗口宽度上限，避免 nuzzle 卖萌放大到异常。
-    const maxWidth = fullWidth
-      ? Math.min(innerWidth - 4, Math.round(base * 1.9) - 4)
-      : Math.min(innerWidth - 4, Math.round(base * 1.7) - 4);
+    // 该上限只对横向宽的画布有意义：帧画布多为正方形，画布宽度跟着 heightScale
+    // 一起涨，对 climb/stretch 这类高姿态套用会把整只宠物按比例压小（climb 曾被
+    // 压到 0.94）。竖向或正方形画布只保留视口溢出保护。
+    const windowCap = fullWidth ? Math.round(base * 1.9) - 4 : Math.round(base * 1.7) - 4;
+    const maxWidth = frame.width > frame.height
+      ? Math.min(innerWidth - 4, windowCap)
+      : innerWidth - 4;
     const maxHeight = innerHeight - (fullHeight ? 4 : 34);
     const fit = Math.min(1, maxWidth / width, maxHeight / height);
     width *= fit;
@@ -330,14 +360,20 @@ export class WebPet extends HTMLElement {
   }
 
   #scheduleAfterPose(state) {
-    const cycleMs = Number(this.#manifest.states[state]?.cycleMs || 0);
+    const config = this.#manifest.states[state];
+    // hold 态用 holdMs / HOLD_DURATIONS，动画态用 cycleMs（正好一轮）。
+    const cycleMs = Number(config?.cycleMs || 0)
+      || Number(config?.holdMs || HOLD_DURATIONS[state] || 0);
     if (cycleMs <= 0) {
       this.#schedule();
       return;
     }
     clearTimeout(this.#scheduler);
     this.#scheduler = setTimeout(() => {
-      if (this.#state !== state) return;
+      // 姿态已被别处换掉时不再强行回 idle，但**必须**重新排程：
+      // 整个组件只有 #schedule() 能重新武装定时器，这里直接 return
+      // 会让自动姿态循环永久停摆，宠物卡在当前姿态不动。
+      if (this.#state !== state) { this.#schedule(); return; }
       this.#play('idle');
       this.#schedule();
     }, cycleMs);
@@ -345,7 +381,7 @@ export class WebPet extends HTMLElement {
 
   #schedule() {
     clearTimeout(this.#scheduler);
-    if (this.#motionQuery.matches || this.hasAttribute('paused')) return;
+    if (this.#motionQuery.matches || this.hasAttribute('paused') || !this.isConnected) return;
     this.#scheduler = setTimeout(async () => {
       const state = this.#pickAutoPose();
       if (state === 'walk' || state === 'run') await this.#wander(state);
@@ -365,6 +401,15 @@ export class WebPet extends HTMLElement {
     const baseY = this.#y;
     // deskpet: 高度 min(340, 45% 视口高)
     const climbDist = Math.min(340, Math.round(innerHeight * 0.45));
+    // 中断时把宠物放回起跳基线：baseY 是局部变量，函数一返回就丢，
+    // 半空中断会让宠物永久悬在那儿。拖拽中位置由用户接管，不要抢。
+    const abort = () => {
+      if (!this.#drag && this.#y !== baseY) {
+        this.#y = baseY;
+        this.#applyPosition();
+        this.#play('idle');
+      }
+    };
     await this.#play('climb');
     // 上升：deskpet 83px/s (2px/24ms tick)
     let last = performance.now();
@@ -380,10 +425,10 @@ export class WebPet extends HTMLElement {
       };
       this.#moveRaf = requestAnimationFrame(step);
     });
-    if (this.hasAttribute('paused') || this.#drag) return;
+    if (this.hasAttribute('paused') || this.#drag) { abort(); return; }
     // deskpet: hang 600ms 悬停
     await new Promise((r) => setTimeout(r, 600));
-    if (this.hasAttribute('paused') || this.#drag) return;
+    if (this.hasAttribute('paused') || this.#drag) { abort(); return; }
     // 下落：deskpet 自由落体加速 v=4 初速, 每帧 v=min(28, v+2)
     if (this.#manifest.states.fall) this.#play('fall');
     let v = 4;
@@ -398,7 +443,7 @@ export class WebPet extends HTMLElement {
       };
       this.#moveRaf = requestAnimationFrame(step);
     });
-    if (this.hasAttribute('paused') || this.#drag) return;
+    if (this.hasAttribute('paused') || this.#drag) { abort(); return; }
     // 落地缓冲
     await this.#land();
   }
@@ -462,6 +507,16 @@ export class WebPet extends HTMLElement {
   #dragStart(event) {
     if (event.button !== 0) return;
     cancelAnimationFrame(this.#moveRaf);
+    this.#moveRaf = 0;
+    // 抛飞途中重新抓住：物理链必须先停。否则 #runThrow 与 #dragMove 会同时写
+    // #x/#y（宠物在手里抖），而且松手时 #startThrow 换上新的 #throw 后旧链还活着，
+    // 两条链读同一个对象、每 24ms 叠加两次重力，连抛就越抛越快。
+    this.#stopThrow();
+    // 拖拽接管位置，必须同时结束挂起的移动 Promise。只取消 rAF 会让
+    // #climb / #wander 永远停在 await 上，它们的 .then(#schedule) 不再触发，
+    // 自动姿态循环就此死掉，宠物也停在半空回不到地面。
+    this.#moveResolve?.();
+    this.#moveResolve = null;
     this.#drag = {
       id: event.pointerId,
       offsetX: event.clientX - this.#x,
@@ -551,14 +606,20 @@ export class WebPet extends HTMLElement {
       } else {
         // 落地：显示 fall[1] 缓冲帧 + react 700ms
         this.#x = nx; this.#y = ny; this.#applyPosition();
-        this.#throw = null;
+        this.#stopThrow();
         this.#land();
         return;
       }
     }
     this.#x = nx; this.#y = ny; this.#applyPosition();
-    if (performance.now() > b.until) { this.#throw = null; this.#land(); return; }
-    setTimeout(() => this.#runThrow(), dt);
+    if (performance.now() > b.until) { this.#stopThrow(); this.#land(); return; }
+    this.#throwTimer = setTimeout(() => this.#runThrow(), dt);
+  }
+
+  #stopThrow() {
+    clearTimeout(this.#throwTimer);
+    this.#throwTimer = 0;
+    this.#throw = null;
   }
 
   // deskpet: 落地缓冲，显示 fall[1] 700ms 后回 idle
@@ -569,7 +630,8 @@ export class WebPet extends HTMLElement {
       this.#showFrame('fall', 1);
       await new Promise((r) => setTimeout(r, 700));
     }
-    if (this.hasAttribute('paused') || this.#drag) return;
+    // isConnected：元素已被移除时不要再把整个自动姿态循环重新武装起来。
+    if (this.hasAttribute('paused') || this.#drag || !this.isConnected) return;
     await this.#play('idle');
     this.#schedule();
   }
@@ -600,6 +662,7 @@ export class WebPet extends HTMLElement {
   #stopTimers() {
     this.#playGeneration += 1;
     this.#clearPlayback();
+    this.#stopThrow();
     clearTimeout(this.#scheduler);
     clearTimeout(this.#clickTimer);
     cancelAnimationFrame(this.#moveRaf);

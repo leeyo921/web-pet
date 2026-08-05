@@ -68,3 +68,10 @@ git submodule add https://github.com/leeyo921/web-pet.git public/webpet
 - 146 帧 WebP 透明图（2.88 MB）
 - 1 个咕噜声 MP3（42.7 KB）
 - manifest.json 记录每帧尺寸与 heightScale
+
+### 姿态停留时长
+
+动画姿态用 `cycleMs`（正好放完一轮）决定停留多久。`hold: true` 的静止姿态没有
+`cycleMs`，改用 `holdMs`；manifest 不写 `holdMs` 时回退到 `webpet.js` 里的
+`HOLD_DURATIONS` 默认值（睡觉 9s、农民揣 6s）。两者都没有的姿态只会停留调度器
+的 1–3 秒过渡，对静止姿态来说太短——睡觉的 zzz 动画一轮就要 2.8 秒。
