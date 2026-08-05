@@ -80,6 +80,18 @@ const pos = (el) => el.style.transform;
 const state = (el) => el.getAttribute('state');
 const listeners = () => `resize=${winListeners.get('resize')} visibilitychange=${docListeners.get('visibilitychange')}`;
 
+// 轮询等待某个姿态出现。不要用固定 sleep 卡时间点：姿态时长依赖 manifest 的
+// cycleMs/holdMs，用例之间又会互相影响起始状态，写死时间会让用例变得脆弱、
+// 甚至在旧版本上因为跑到别的分支而"空过"。
+async function waitForState(el, want, budgetMs) {
+  const deadline = Date.now() + budgetMs;
+  while (Date.now() < deadline) {
+    if (state(el) === want) return true;
+    await sleep(100);
+  }
+  return false;
+}
+
 function pointer(el, type, props) {
   const event = new window.Event(type, { bubbles: true, cancelable: true });
   Object.assign(event, { pointerId: 1, button: 0, ...props });
@@ -135,13 +147,50 @@ check('暂停后抛掷链停止', pos(pet) === midFlight, `${midFlight} -> ${pos
 pet.resume();
 await sleep(50);
 
+// ---------------------------------------------------------------- 位移与姿态的配合
+// 走路是 #wander 里的 rAF 循环在推 #x，换姿态走的是 #play，两者本来毫无联动，
+// 所以走路途中切到静止姿态后位移还在继续（"已经是农民揣了还在平移"）。
+// 放在这里是因为 resume() 刚把宠物送回 idle 并重新武装了调度器，起点干净。
+const realRandom = Math.random;
+Math.random = () => 0.02;   // 自动抽签落在 walk 权重区间 0–9
+check('自动姿态抽到 walk', await waitForState(pet, 'walk', 8000), `state=${state(pet)}`);
+const walkFrom = pos(pet);
+await sleep(200);
+check('走路时确实在平移', pos(pet) !== walkFrom, `${walkFrom} -> ${pos(pet)}`);
+
+await pet.play('loaf');
+const loafAt = pos(pet);
+await sleep(400);
+check('切到农民揣后停止平移', pos(pet) === loafAt, `${loafAt} -> ${pos(pet)}`);
+check('农民揣没有被 #wander 覆盖回 idle', state(pet) === 'loaf', `state=${state(pet)}`);
+
+// 被打断后自动循环必须还活着，否则宠物就永久卡在这个姿态了。
+check('打断后自动姿态循环仍在运转',
+  await waitForState(pet, 'walk', 12000), `12s 内是否回到 walk：state=${state(pet)}`);
+
+// 连续点击穿过多个位移姿态：旧的 rAF 循环会各自 re-arm，必须只剩一个在跑。
+const entered = state(pet);
+// 单击循环是 idle→walk→run→lie→…，点到落进静止姿态为止。次数不写死：
+// #suppressClick 可能被前面的拖拽用例置位，第一次点击会被吞掉。
+let clicks = 0;
+while (['walk', 'run'].includes(state(pet)) && clicks < 6) {
+  pointer(pet, 'click', {});
+  await sleep(400);
+  clicks += 1;
+}
+const settled = state(pet);
+const settledAt = pos(pet);
+await sleep(400);
+check('连点穿过 walk/run 落到静止姿态后不再平移',
+  entered === 'walk' && !['walk', 'run'].includes(settled) && pos(pet) === settledAt,
+  `${entered} --${clicks}击--> ${settled}，${settledAt} -> ${pos(pet)}`);
+Math.random = realRandom;
+
 // ---------------------------------------------------------------- hold 态停留时长
 // hold 态没有 cycleMs，靠 holdMs / HOLD_DURATIONS 决定停留多久；缺了就会被
 // 调度器的 1–3 秒过渡直接换走，睡觉的 zzz 一轮 2.8s 都放不完。
-const realRandom = Math.random;
-Math.random = () => 0.65;   // 落在 sleep 权重区间 58.8–70.4，调度延迟 2.3s
-await sleep(3200);
-check('自动姿态抽到 sleep', state(pet) === 'sleep', `state=${state(pet)}`);
+Math.random = () => 0.65;   // 落在 sleep 权重区间 58.8–70.4
+check('自动姿态抽到 sleep', await waitForState(pet, 'sleep', 12000), `state=${state(pet)}`);
 await sleep(5000);
 check('sleep 停留超过 5 秒', state(pet) === 'sleep', `5s 后 state=${state(pet)}`);
 Math.random = realRandom;

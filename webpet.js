@@ -203,7 +203,10 @@ export class WebPet extends HTMLElement {
 
   play(state) {
     if (!this.#manifest) return Promise.resolve(false);
-    return this.#play(state, { thenIdle: this.#manifest?.states[state]?.once === true });
+    // 与单击换姿态一致，播完后把自动姿态循环重新武装起来。少了这一步，在游荡途中
+    // 调用 play() 会打断位移却没人再排程，宠物就永久停在这个姿态不动了。
+    return this.#play(state, { thenIdle: this.#manifest.states[state]?.once === true })
+      .then(() => { this.#scheduleAfterPose(state); return true; });
   }
 
   pause() { this.setAttribute('paused', ''); }
@@ -332,6 +335,11 @@ export class WebPet extends HTMLElement {
     if (!this.#manifest?.states[state]) state = 'idle';
     const generation = ++this.#playGeneration;
     this.#clearPlayback();
+    // 位移必须跟着姿态一起换。#wander / #climb 的 rAF 循环和抛掷链都独立于姿态
+    // 运行，只换帧不停它们，就会出现"已经是农民揣了还在平移"。必须在 await 之前
+    // 同步停掉：#climb 紧接着 #play('fall') 就启动下落循环，放到 await 之后会把
+    // 它自己刚建立的循环一起掐死。
+    this.#stopMotion();
     await this.#preload(state);
     if (generation !== this.#playGeneration) return;
     this.#state = state;
@@ -384,20 +392,23 @@ export class WebPet extends HTMLElement {
     if (this.#motionQuery.matches || this.hasAttribute('paused') || !this.isConnected) return;
     this.#scheduler = setTimeout(async () => {
       const state = this.#pickAutoPose();
-      if (state === 'walk' || state === 'run') await this.#wander(state);
-      else if (state === 'climb') await this.#climb();
-      else {
-        await this.#play(state);
-        this.#scheduleAfterPose(state);
+      if (state === 'walk' || state === 'run') {
+        if (await this.#wander(state)) this.#schedule();
         return;
       }
-      this.#schedule();
+      if (state === 'climb') {
+        if (await this.#climb()) this.#schedule();
+        return;
+      }
+      await this.#play(state);
+      this.#scheduleAfterPose(state);
     // 动作结束后只保留 1–3 秒 idle 过渡，避免站立状态停留过久。
     }, 1000 + Math.random() * 2000);
   }
 
+  // 同 #wander：返回 true 表示正常爬完落地，false 表示中途被打断。
   async #climb() {
-    if (this.#drag || !this.#manifest.states.fall) return;
+    if (this.#drag || !this.#manifest.states.fall) return false;
     const baseY = this.#y;
     // deskpet: 高度 min(340, 45% 视口高)
     const climbDist = Math.min(340, Math.round(innerHeight * 0.45));
@@ -411,6 +422,7 @@ export class WebPet extends HTMLElement {
       }
     };
     await this.#play('climb');
+    let generation = this.#playGeneration;
     // 上升：deskpet 83px/s (2px/24ms tick)
     let last = performance.now();
     await new Promise((resolve) => {
@@ -425,12 +437,18 @@ export class WebPet extends HTMLElement {
       };
       this.#moveRaf = requestAnimationFrame(step);
     });
-    if (this.hasAttribute('paused') || this.#drag) { abort(); return; }
+    // 被换姿态打断时不要 abort()：位置该由新姿态接管，硬拉回起跳基线会看到瞬移。
+    if (generation !== this.#playGeneration) return false;
+    if (this.hasAttribute('paused') || this.#drag) { abort(); return false; }
     // deskpet: hang 600ms 悬停
     await new Promise((r) => setTimeout(r, 600));
-    if (this.hasAttribute('paused') || this.#drag) { abort(); return; }
+    if (generation !== this.#playGeneration) return false;
+    if (this.hasAttribute('paused') || this.#drag) { abort(); return false; }
     // 下落：deskpet 自由落体加速 v=4 初速, 每帧 v=min(28, v+2)
-    if (this.#manifest.states.fall) this.#play('fall');
+    // 顶部已保证 fall 存在。这是本函数自己换的姿态，要把基准 generation 一起更新，
+    // 否则下面的打断判定会把自己误判成被打断。
+    this.#play('fall');
+    generation = this.#playGeneration;
     let v = 4;
     await new Promise((resolve) => {
       this.#moveResolve = resolve;
@@ -443,15 +461,21 @@ export class WebPet extends HTMLElement {
       };
       this.#moveRaf = requestAnimationFrame(step);
     });
-    if (this.hasAttribute('paused') || this.#drag) { abort(); return; }
+    if (generation !== this.#playGeneration) return false;
+    if (this.hasAttribute('paused') || this.#drag) { abort(); return false; }
     // 落地缓冲
     await this.#land();
+    return true;
   }
 
+  // 返回 true 表示正常走完，false 表示中途被打断（换姿态 / 暂停 / 拖拽）。
+  // 打断时调用方不要再排程：打断者自己会排（#scheduleAfterPose），重复排会把
+  // 刚选的姿态提前换走。
   async #wander(state) {
     const config = this.#manifest.states[state];
-    if (!config || this.#drag) return;
+    if (!config || this.#drag) return false;
     await this.#play(state);
+    const generation = this.#playGeneration;
     const width = this.#stage.offsetWidth || 180;
     const target = 12 + width / 2
       + Math.random() * Math.max(1, innerWidth - width - 24);
@@ -478,8 +502,12 @@ export class WebPet extends HTMLElement {
       };
       this.#moveRaf = requestAnimationFrame(step);
     });
-    if (this.hasAttribute('paused')) return;
+    // 姿态已被换掉：位移刚才已由 #play → #stopMotion 停下，这里不能再回 idle，
+    // 否则会把用户点出来的姿态覆盖掉。
+    if (generation !== this.#playGeneration) return false;
+    if (this.hasAttribute('paused')) return false;
     await this.#play('idle');
+    return true;
   }
 
   #singleClick() {
@@ -488,8 +516,8 @@ export class WebPet extends HTMLElement {
     this.#clickTimer = setTimeout(() => {
       const states = ['idle', 'walk', 'run', 'lie', 'loaf', 'groom', 'sleep2', 'sleep', 'stretch', 'play', 'watch', 'climb'];
       const next = states[(states.indexOf(this.#state) + 1) % states.length];
-      if (next === 'climb') this.#climb().then(() => this.#schedule());
-      else if (next === 'walk' || next === 'run') this.#wander(next).then(() => this.#schedule());
+      if (next === 'climb') this.#climb().then((done) => { if (done) this.#schedule(); });
+      else if (next === 'walk' || next === 'run') this.#wander(next).then((done) => { if (done) this.#schedule(); });
       else this.#play(next).then(() => this.#scheduleAfterPose(next));
     }, 260);
   }
@@ -506,17 +534,11 @@ export class WebPet extends HTMLElement {
 
   #dragStart(event) {
     if (event.button !== 0) return;
-    cancelAnimationFrame(this.#moveRaf);
-    this.#moveRaf = 0;
-    // 抛飞途中重新抓住：物理链必须先停。否则 #runThrow 与 #dragMove 会同时写
-    // #x/#y（宠物在手里抖），而且松手时 #startThrow 换上新的 #throw 后旧链还活着，
-    // 两条链读同一个对象、每 24ms 叠加两次重力，连抛就越抛越快。
-    this.#stopThrow();
-    // 拖拽接管位置，必须同时结束挂起的移动 Promise。只取消 rAF 会让
-    // #climb / #wander 永远停在 await 上，它们的 .then(#schedule) 不再触发，
-    // 自动姿态循环就此死掉，宠物也停在半空回不到地面。
-    this.#moveResolve?.();
-    this.#moveResolve = null;
+    // 拖拽接管位置，一切自动位移都要让位。抛飞途中重新抓住尤其要停物理链：
+    // 否则 #runThrow 与 #dragMove 同时写 #x/#y（宠物在手里抖），松手时
+    // #startThrow 换上新的 #throw 后旧链还活着，两条链读同一个对象、每 24ms
+    // 叠加两次重力，连抛就越抛越快。
+    this.#stopMotion();
     this.#drag = {
       id: event.pointerId,
       offsetX: event.clientX - this.#x,
@@ -616,6 +638,17 @@ export class WebPet extends HTMLElement {
     this.#throwTimer = setTimeout(() => this.#runThrow(), dt);
   }
 
+  // 停掉一切正在改写 #x/#y 的东西：游荡/爬墙的 rAF 循环 + 抛掷的 setTimeout 链。
+  // 一并 resolve 挂起的移动 Promise，否则 #wander / #climb 会永远停在 await 上，
+  // 它们的调用方再也等不到返回值。
+  #stopMotion() {
+    cancelAnimationFrame(this.#moveRaf);
+    this.#moveRaf = 0;
+    this.#moveResolve?.();
+    this.#moveResolve = null;
+    this.#stopThrow();
+  }
+
   #stopThrow() {
     clearTimeout(this.#throwTimer);
     this.#throwTimer = 0;
@@ -662,13 +695,9 @@ export class WebPet extends HTMLElement {
   #stopTimers() {
     this.#playGeneration += 1;
     this.#clearPlayback();
-    this.#stopThrow();
+    this.#stopMotion();
     clearTimeout(this.#scheduler);
     clearTimeout(this.#clickTimer);
-    cancelAnimationFrame(this.#moveRaf);
-    this.#moveRaf = 0;
-    this.#moveResolve?.();
-    this.#moveResolve = null;
   }
 }
 
