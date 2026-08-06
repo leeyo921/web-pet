@@ -369,6 +369,25 @@ for (const [attrs, want, label] of [
   el.remove();
 }
 
+// 移动端单独一套：桌面的 home-x / home-y 在窄屏一律忽略，只认 home-x-mobile /
+// home-y-mobile；都没写就回到底部默认落点。
+setViewport(390, 780);
+for (const [attrs, want, label] of [
+  [{ 'home-x': '56%', 'home-y': '63%' }, { x: 390 - 85, y: 780 - 10 }, '移动端忽略桌面落点'],
+  [{ 'home-x-mobile': '50%', 'home-y-mobile': '90%' }, { x: 195, y: 702 }, '移动端专用落点'],
+]) {
+  const el = window.document.createElement('web-pet');
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  window.document.body.append(el);
+  await new Promise((r) => el.addEventListener('webpet-ready', r, { once: true }));
+  const got = el.style.transform.match(/translate3d\((-?\d+)px, (-?\d+)px/);
+  check(`默认落点 · ${label}`,
+    Number(got[1]) === want.x && Number(got[2]) === want.y,
+    `实际 (${got[1]}, ${got[2]})，期望 (${want.x}, ${want.y})`);
+  el.remove();
+}
+setViewport(1440, 900);
+
 // ---------------------------------------------------------------- 移动端
 // walk/run/climb 都是位移姿态，移动端应全部排除（README：移动端不游荡）。
 setViewport(400, 800);

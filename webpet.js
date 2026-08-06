@@ -314,10 +314,14 @@ export class WebPet extends HTMLElement {
   #positionInitially() {
     const mobile = innerWidth < 700;
     // x 是舞台中心，而不是左边缘。姿态画布宽度不同，中心仍应保持不变。
-    // y 是姿态底边的基线，也就是宠物脚踩的那条线。
-    // 默认落在右下角；宿主可以用 home-x / home-y 指定别的落点。
-    this.#x = this.#homePosition('home-x', innerWidth, Math.max(8, innerWidth - (mobile ? 85 : 138)));
-    this.#y = this.#homePosition('home-y', innerHeight, Math.max(8, innerHeight - (mobile ? 10 : 18)));
+    // y 是姿态底边的基线，也就是宠物脚踩的那条线。默认落在右下角。
+    //
+    // 移动端**只认** home-x-mobile / home-y-mobile，桌面的 home-x / home-y 一律忽略：
+    // 两端版式差异大，桌面上挑好的落点搬到窄屏往往正好压住正文。不写移动端属性就
+    // 回到底部默认落点。组件在 700px 处已经分了尺寸与行为，这里沿用同一条分界。
+    const suffix = mobile ? '-mobile' : '';
+    this.#x = this.#homePosition(`home-x${suffix}`, innerWidth, Math.max(8, innerWidth - (mobile ? 85 : 138)));
+    this.#y = this.#homePosition(`home-y${suffix}`, innerHeight, Math.max(8, innerHeight - (mobile ? 10 : 18)));
     this.#applyPosition();
   }
 
