@@ -350,6 +350,25 @@ await sleep(4000);
 check('重挂载后自动姿态循环恢复', state(pet) !== null, `${afterRemount} -> ${state(pet)}`);
 pet.remove();
 
+// ---------------------------------------------------------------- 默认落点
+// home-x / home-y 让宿主指定初始位置（百分比或像素），缺省仍是右下角。
+for (const [attrs, want, label] of [
+  [{}, { x: 1440 - 138, y: 900 - 18 }, '缺省落在右下角'],
+  [{ 'home-x': '56%', 'home-y': '63%' }, { x: 806, y: 567 }, '百分比'],
+  [{ 'home-x': '400', 'home-y': '300' }, { x: 400, y: 300 }, '像素'],
+  [{ 'home-x': '乱写', 'home-y': '' }, { x: 1440 - 138, y: 900 - 18 }, '写错时回退默认值'],
+]) {
+  const el = window.document.createElement('web-pet');
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  window.document.body.append(el);
+  await new Promise((r) => el.addEventListener('webpet-ready', r, { once: true }));
+  const got = el.style.transform.match(/translate3d\((-?\d+)px, (-?\d+)px/);
+  check(`默认落点 · ${label}`,
+    Number(got[1]) === want.x && Number(got[2]) === want.y,
+    `实际 (${got[1]}, ${got[2]})，期望 (${want.x}, ${want.y})`);
+  el.remove();
+}
+
 // ---------------------------------------------------------------- 移动端
 // walk/run/climb 都是位移姿态，移动端应全部排除（README：移动端不游荡）。
 setViewport(400, 800);
