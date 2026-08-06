@@ -243,6 +243,44 @@ check('回到过渡态后再点击按游标推进，而不是从头开始',
   afterFirst === 'loaf' && afterSecond === 'groom',
   `lie --点击--> ${afterFirst} --(回 idle 后)点击--> ${afterSecond}，期望 loaf / groom`);
 
+// 真实浏览器里一次点击是 pointerdown → pointerup → click，前两个会走
+// #dragStart / #dragEnd。只派发 click 会漏掉这条路径上的 bug。
+function realClick(x = 700, y = 450) {
+  pointer(pet, 'pointerdown', { clientX: x, clientY: y });
+  pointer(pet, 'pointerup', { clientX: x, clientY: y });
+  pointer(pet, 'click', {});
+}
+
+// 按下会中止游荡。若此时立刻重新排程，过渡最短 200ms 比单击 260ms 的防抖还短，
+// 自动调度就会抢在点击生效之前插进一个随机姿态，把点击游标带偏 —— 表现为
+// 单击切到跑步，两百毫秒后变成别的姿态，像是"跑步姿态丢了"。
+// Math.random 打桩成 0：过渡取最短 200ms，必定早于 240ms 的观察窗。
+check('再次进入 walk（真实指针序列）', await clickUntil('walk'), `state=${state(pet)}`);
+Math.random = () => 0;
+const inserted = [];
+const recorder = (e) => inserted.push(`${e.detail.state}@${Date.now() - clickAt}ms`);
+pet.addEventListener('webpet-statechange', recorder);
+const clickAt = Date.now();
+realClick();
+await sleep(240);
+pet.removeEventListener('webpet-statechange', recorder);
+Math.random = realRandom;
+check('按下到点击生效之间不会被自动调度插队',
+  inserted.filter((s) => !s.startsWith('idle@')).length === 0,
+  `插入了 ${inserted.join(' ') || '无'}`);
+
+// 6px 阈值必须同时管住位置：只管状态的话，按下时几像素的手抖会让宠物平移，
+// 姿态却还停在舔毛、睡觉上。
+await pet.play('lie');
+await sleep(250);
+const beforeJitter = pos(pet);
+pointer(pet, 'pointerdown', { clientX: 700, clientY: 450 });
+pointer(pet, 'pointermove', { clientX: 703, clientY: 451 });
+pointer(pet, 'pointerup', { clientX: 703, clientY: 451 });
+await sleep(150);
+check('按下时 6px 内的抖动不会挪动宠物',
+  pos(pet) === beforeJitter, `${beforeJitter} -> ${pos(pet)}`);
+
 // 走路途中切到静止姿态：位移必须立刻停，姿态也不能被 #wander 覆盖回 idle。
 check('第三次进入 walk', await clickUntil('walk'), `state=${state(pet)}`);
 await sleep(250);

@@ -21,7 +21,7 @@
         }
       ],
       "areaScale": 1,
-      "runtimeScale": 0.9
+      "deskpetRuntimeScale": 0.9
     },
     "walk": {
       "cycleMs": 1500,

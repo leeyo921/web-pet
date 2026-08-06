@@ -16,7 +16,7 @@ const AUTO_POSE_WEIGHTS = [
 // 没有 cycleMs 的静止姿态更是只停 #schedule 的 1–3 秒过渡。睡觉睡 3 秒、理毛只梳
 // 一遍就起身，都不合理。
 // idle 不列在这里：它是动作之间的过渡（deskpet 叫 bridge），时长由 #schedule 的
-// 1–3 秒承担，两处都写会叠成 2–6 秒。
+// BRIDGE_MS 承担，两处都写会叠加。
 const DURATIONS = {
   sleep: [20000, 45000],
   sleep2: [20000, 45000],
@@ -33,7 +33,7 @@ const DURATIONS = {
 
 // 动作之间的 idle 过渡。桌面端是 1–3 秒（DURATIONS.bridge），网页版这里**刻意偏离**：
 // 桌宠是全天候后台陪伴，站着缓两秒很自然；网页访客往往只停留几十秒，过渡占掉的
-// 每一秒都是"宠物在发呆"。压到 0.2–0.5 秒后过渡时间占比从 12.4% 降到约 3.5%。
+// 每一秒都是"宠物在发呆"。压到 0.2–0.5 秒后过渡时间占比从 12.4% 降到 2.3%。
 const BRIDGE_MS = [200, 500];
 
 // 游荡的最短距离，同 deskpet：目标点离当前位置太近就重抽，抽 8 次仍太近就放弃改
@@ -177,6 +177,9 @@ export class WebPet extends HTMLElement {
   #x = 0;
   #y = 0;
   #drag = null;
+  // 按下打断了自动行为。不能靠 #drag 判断：pointerup 紧接着 pointerdown 同步到达，
+  // 等 #wander / #climb 的微任务恢复时 #drag 早被 #dragEnd 清空了。
+  #dragInterrupt = false;
   #throw = null;
   #throwTimer = 0;
   #clickTimer = 0;
@@ -451,6 +454,8 @@ export class WebPet extends HTMLElement {
   // 同 #wander：返回 true 表示正常爬完落地，false 表示中途被打断。
   async #climb() {
     if (this.#drag || !this.#manifest.states.fall) return false;
+    clearTimeout(this.#scheduler);   // 同 #wander：接管行为期间不许自动调度插队
+    this.#dragInterrupt = false;
     const baseY = this.#y;
     // deskpet: 高度 min(340, 45% 视口高)
     const climbDist = Math.min(340, Math.round(innerHeight * 0.45));
@@ -484,11 +489,11 @@ export class WebPet extends HTMLElement {
     });
     // 被换姿态打断时不要 abort()：位置该由新姿态接管，硬拉回起跳基线会看到瞬移。
     if (generation !== this.#playGeneration) return false;
-    if (this.hasAttribute('paused') || this.#drag) { abort(); return false; }
+    if (this.hasAttribute('paused') || this.#drag || this.#dragInterrupt) { abort(); return false; }
     // deskpet: hang 600ms 悬停
     await new Promise((r) => setTimeout(r, 600));
     if (generation !== this.#playGeneration) return false;
-    if (this.hasAttribute('paused') || this.#drag) { abort(); return false; }
+    if (this.hasAttribute('paused') || this.#drag || this.#dragInterrupt) { abort(); return false; }
     // 下落：deskpet 自由落体加速 v=4 初速, 每帧 v=min(28, v+2)
     // 顶部已保证 fall 存在。这是本函数自己换的姿态，要把基准 generation 一起更新，
     // 否则下面的打断判定会把自己误判成被打断。
@@ -507,7 +512,7 @@ export class WebPet extends HTMLElement {
       this.#moveRaf = requestAnimationFrame(step);
     });
     if (generation !== this.#playGeneration) return false;
-    if (this.hasAttribute('paused') || this.#drag) { abort(); return false; }
+    if (this.hasAttribute('paused') || this.#drag || this.#dragInterrupt) { abort(); return false; }
     // 落地缓冲
     await this.#land();
     return true;
@@ -519,6 +524,11 @@ export class WebPet extends HTMLElement {
   async #wander(state) {
     const config = this.#manifest.states[state];
     if (!config || this.#drag) return false;
+    // 接管行为：清掉可能还挂着的自动调度定时器。走一趟要好几秒，期间若有一个
+    // 0.2–0.5 秒的过渡定时器没清，它到点就会抽个随机姿态把这趟游荡覆盖掉 ——
+    // 表现为单击切到跑步，两百毫秒后就变成别的姿态，像是"跑步姿态丢了"。
+    clearTimeout(this.#scheduler);
+    this.#dragInterrupt = false;
     await this.#play(state);
     const generation = this.#playGeneration;
     const width = this.#stage.offsetWidth || 180;
@@ -564,6 +574,9 @@ export class WebPet extends HTMLElement {
     if (generation !== this.#playGeneration) return false;
     if (this.hasAttribute('paused')) return false;
     await this.#play('idle');
+    // 被按下打断时不要重新排程：过渡最短 200ms，比单击 260ms 的防抖还短，自动调度
+    // 会抢在点击生效之前插进一个随机姿态，把点击游标带偏。交给 #dragEnd 兜底。
+    if (this.#dragInterrupt || this.#drag) return false;
     return true;
   }
 
@@ -600,6 +613,7 @@ export class WebPet extends HTMLElement {
 
   #dragStart(event) {
     if (event.button !== 0) return;
+    this.#dragInterrupt = true;
     // 拖拽接管位置，一切自动位移都要让位。抛飞途中重新抓住尤其要停物理链：
     // 否则 #runThrow 与 #dragMove 同时写 #x/#y（宠物在手里抖），松手时
     // #startThrow 换上新的 #throw 后旧链还活着，两条链读同一个对象、每 24ms
@@ -620,7 +634,11 @@ export class WebPet extends HTMLElement {
     if (!this.#drag || event.pointerId !== this.#drag.id) return;
     const dx = event.clientX - (this.#drag.offsetX + this.#x);
     const dy = event.clientY - (this.#drag.offsetY + this.#y);
-    if (Math.hypot(dx, dy) > 6 && !this.#drag.moved) {
+    if (!this.#drag.moved) {
+      // 6px 阈值必须同时管住位置，不能只管状态：单击时手指/鼠标常有几像素抖动，
+      // 只卡状态的话宠物会跟着平移，姿态却还停在舔毛、睡觉上 —— 看起来就是
+      // "静止姿态在滑行"。
+      if (Math.hypot(dx, dy) <= 6) return;
       this.#drag.moved = true;
       // deskpet: 确认移动后才进入 drag 态
       this.#clearPlayback();
@@ -642,7 +660,14 @@ export class WebPet extends HTMLElement {
     if (!this.#drag || event.pointerId !== this.#drag.id) return;
     this.#stage.releasePointerCapture?.(event.pointerId);
     const moved = this.#drag.moved;
-    if (!moved) { this.#drag = null; return; }
+    if (!moved) {
+      // 只是点了一下：按下已经中止了游荡且刻意没有重新排程（见 #wander）。这里兜底
+      // 重启自动循环，延时长于单击 260ms 的防抖，好让点击优先接管。
+      this.#drag = null;
+      clearTimeout(this.#scheduler);
+      this.#scheduler = setTimeout(() => this.#schedule(), 400);
+      return;
+    }
     this.#suppressClick = true;
     const samples = this.#drag.samples;
     this.#drag = null;
