@@ -111,10 +111,29 @@ WEBPET_DIR=~/code/pawra-saas/public/webpet node scripts/export-webpet-assets.mjs
 | sleep / sleep2 | 20–45s | | groom | 6.5–12s |
 | lie / loaf | 8–20s | | play | 5–9s |
 | watch | 6–15s | | stretch | 4s |
-| nuzzle | 4.1–4.3s | | idle（过渡） | 1–3s |
+| nuzzle | 4.1–4.3s | | **idle（过渡）** | **0.2–0.5s** |
 
 多帧姿态在这段时间里持续循环。`cycleMs` 只决定一轮动画多长，不再兼任停留时长——
 早期版本两者混用，等于每个姿态只播一遍就走，睡觉睡 3 秒、理毛只梳一遍。
+
+**idle 过渡是唯一刻意偏离桌面端的参数**（桌面端 `DURATIONS.bridge` 是 1–3 秒）。
+桌宠是全天候后台陪伴，动作之间站着缓两秒很自然；网页访客往往只停留几十秒，过渡
+占掉的每一秒都是"宠物在发呆"。压到 0.2–0.5 秒后，过渡时间占比从 12.4% 降到 2.3%。
+
+睡醒有 80% 概率直接接伸懒腰（`STRETCH_AFTER_SLEEP`），**不经过过渡态**，与桌面端
+一致。这个判断必须放在停留时长到期的那一刻；早期版本写在 `#pickAutoPose` 里，而抽签
+发生在过渡之后、`#state` 早已是 idle，条件永远不成立，是死代码。
+
+### 单击循环
+
+`walk → run → lie → loaf → groom → sleep2 → sleep → stretch → play → watch → climb`
+（11 个真姿态，**不含 idle**）。组件记一个游标：当前是真姿态就从它往下推进，处于
+过渡态（idle / drag / react / fall）时从上次点选的位置继续。
+
+两点都不能省。idle 不在循环里，是因为它只停留 0.2–0.5 秒，点到它眨眼就被自动调度器
+抽走，下一次点击又从那个随机姿态重新对齐，循环被打乱。游标不能省，是因为 walk 最短
+0.72 秒就走完并自动回到 idle，手速稍慢时下一次点击看到的就是过渡态——若从过渡态
+从头推进，就永远在 walk↔idle 之间打转。
 
 ### 游荡距离
 

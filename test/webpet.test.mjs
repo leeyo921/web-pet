@@ -156,11 +156,17 @@ await sleep(50);
 // 产品行为。改用单击进入 walk（点击循环 idle→walk→run→lie→…）。
 const realRandom = Math.random;
 const xOf = (el) => Number(pos(el).match(/translate3d\((-?\d+)px/)[1]);
+// 点击后要轮询着等，不能固定 sleep 一次就采样：idle 过渡只有 0.2–0.5 秒，自动
+// 调度器会在两次点击之间插进新姿态，固定采样很容易正好错过目标姿态。
 async function clickUntil(want, tries = 14) {
   for (let i = 0; i < tries; i++) {
     if (state(pet) === want) return true;
     pointer(pet, 'click', {});   // 第一次可能被 #suppressClick 吞掉，多点几次
-    await sleep(400);
+    const deadline = Date.now() + 600;   // 含单击 260ms 防抖
+    while (Date.now() < deadline) {
+      if (state(pet) === want) return true;
+      await sleep(20);
+    }
   }
   return state(pet) === want;
 }
@@ -215,16 +221,27 @@ if (rNear < 0 || rNear > 1 || rFar < 0 || rFar > 1) {
 
 // 点击游标：walk 最短 0.72 秒就走完并自动回到 idle。手速稍慢，下一次点击看到的就是
 // idle，若从 idle 推进就又会选中 walk —— 永远在 walk↔idle 之间打转，点不到后面的姿态。
-// 不要等自动调度器自己把宠物换走：它可能换到一个真姿态，游标就从那儿重新对齐，
-// 用例会侥幸通过。直接 play('idle') 还原"走完自动回到过渡态"这一幕。
-check('点进 walk 作为游标起点', await clickUntil('walk'), `state=${state(pet)}`);
+// 点击游标：走完/爬完都会自动回到 idle 过渡态，此时再点击必须沿着循环往下推进，
+// 而不是从头开始（旧版从 idle 推进永远得到 walk，于是卡在 walk↔idle 之间打转）。
+//
+// Math.random 打桩成 1：过渡取满 0.5s，且 #pickAutoPose 的 roll 会耗尽所有权重、
+// 落回 idle —— 宠物就一直停在过渡态，自动调度器不会插进来打乱游标，用例才确定。
+// 用 lie / loaf / groom 这几个长姿态，避开 walk 的最短距离回退带来的不确定性。
+Math.random = () => 1;
+await pet.play('lie');
 await sleep(200);
-await pet.play('idle');
-await sleep(150);
 pointer(pet, 'click', {});
 await sleep(500);
-check('从过渡态 idle 再点击不会又选中 walk',
-  state(pet) !== 'walk', `idle --点击--> ${state(pet)}`);
+const afterFirst = state(pet);
+await pet.play('idle');
+await sleep(200);
+pointer(pet, 'click', {});
+await sleep(500);
+const afterSecond = state(pet);
+Math.random = realRandom;
+check('回到过渡态后再点击按游标推进，而不是从头开始',
+  afterFirst === 'loaf' && afterSecond === 'groom',
+  `lie --点击--> ${afterFirst} --(回 idle 后)点击--> ${afterSecond}，期望 loaf / groom`);
 
 // 走路途中切到静止姿态：位移必须立刻停，姿态也不能被 #wander 覆盖回 idle。
 check('第三次进入 walk', await clickUntil('walk'), `state=${state(pet)}`);
@@ -258,7 +275,26 @@ check('自动姿态抽到 sleep', await waitForState(pet, 'sleep', 20000), `stat
 const sleepStart = Date.now();
 while (state(pet) === 'sleep' && Date.now() - sleepStart < 60000) await sleep(200);
 const slept = Date.now() - sleepStart;
+const wokeTo = state(pet);
 check('sleep 连续停留 20 秒以上（桌面端 20–45s）', slept >= 20000, `实测 ${(slept / 1000).toFixed(1)}s`);
+// 睡醒 80% 直接接伸懒腰，且不经过 idle 过渡。这段判断以前写在 #pickAutoPose 里，
+// 而抽签发生在过渡之后、#state 早已是 idle，条件永远不成立（死代码）。
+// Math.random 此处被打桩成 0.65 < 0.8，所以必定命中。
+check('睡醒直接接伸懒腰（不经过 idle）', wokeTo === 'stretch', `sleep -> ${wokeTo}`);
+
+// idle 只是动作之间的过渡，压到 0.2–0.5 秒。桌面端是 1–3 秒，网页版刻意偏离。
+Math.random = realRandom;
+const bridges = [];
+for (let i = 0; i < 6 && bridges.length < 3; i++) {
+  if (!(await waitForState(pet, 'idle', 30000))) break;
+  const from = Date.now();
+  while (state(pet) === 'idle' && Date.now() - from < 5000) await sleep(20);
+  const held = Date.now() - from;
+  if (held < 5000) bridges.push(held);
+}
+check('idle 过渡不超过 0.5 秒',
+  bridges.length > 0 && bridges.every((ms) => ms <= 700),
+  `实测 ${bridges.map((m) => `${m}ms`).join(' / ') || '(没抓到)'}（含 20ms 轮询误差）`);
 Math.random = realRandom;
 
 // ---------------------------------------------------------------- 生命周期

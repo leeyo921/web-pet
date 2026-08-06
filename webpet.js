@@ -31,9 +31,17 @@ const DURATIONS = {
   nuzzle: [4100, 4300],
 };
 
+// 动作之间的 idle 过渡。桌面端是 1–3 秒（DURATIONS.bridge），网页版这里**刻意偏离**：
+// 桌宠是全天候后台陪伴，站着缓两秒很自然；网页访客往往只停留几十秒，过渡占掉的
+// 每一秒都是"宠物在发呆"。压到 0.2–0.5 秒后过渡时间占比从 12.4% 降到约 3.5%。
+const BRIDGE_MS = [200, 500];
+
 // 游荡的最短距离，同 deskpet：目标点离当前位置太近就重抽，抽 8 次仍太近就放弃改
 // 成 idle。没有这个下限时随机目标可能就落在脚边，于是"刚走两步就切换"。
 const MIN_WANDER_DIST = { walk: 60, run: 200 };
+
+// 睡醒后接伸懒腰的概率，同 deskpet。
+const STRETCH_AFTER_SLEEP = 0.8;
 
 function rand([lo, hi]) { return lo + Math.random() * (hi - lo); }
 
@@ -303,10 +311,9 @@ export class WebPet extends HTMLElement {
   }
 
   #pickAutoPose() {
-    if ((this.#state === 'sleep' || this.#state === 'sleep2')
-      && this.#manifest.states.stretch && Math.random() < 0.8) {
-      return 'stretch';
-    }
+    // 睡醒接伸懒腰的判断不在这里：抽签发生在 idle 过渡之后，那时 #state 早已是
+    // idle，条件永远不成立。改在 #scheduleAfterPose 的到期回调里判断（同 deskpet，
+    // 在时长到期的那一刻决定，并且直接接上不经过过渡态）。
     const allowMovement = innerWidth >= 700;
     const available = AUTO_POSE_WEIGHTS.filter(([state]) => {
       // climb 也是位移姿态（爬升 + 自由落体），移动端一并排除，
@@ -412,6 +419,12 @@ export class WebPet extends HTMLElement {
       // 整个组件只有 #schedule() 能重新武装定时器，这里直接 return
       // 会让自动姿态循环永久停摆，宠物卡在当前姿态不动。
       if (this.#state !== state) { this.#schedule(); return; }
+      // 睡醒 80% 先伸个懒腰，直接接上、不经过 idle 过渡（同 deskpet）。
+      if ((state === 'sleep' || state === 'sleep2')
+        && this.#manifest.states.stretch && Math.random() < STRETCH_AFTER_SLEEP) {
+        this.#play('stretch').then(() => this.#scheduleAfterPose('stretch'));
+        return;
+      }
       this.#play('idle');
       this.#schedule();
     }, cycleMs);
@@ -432,8 +445,7 @@ export class WebPet extends HTMLElement {
       }
       await this.#play(state);
       this.#scheduleAfterPose(state);
-    // 动作结束后只保留 1–3 秒 idle 过渡，避免站立状态停留过久。
-    }, 1000 + Math.random() * 2000);
+    }, rand(BRIDGE_MS));
   }
 
   // 同 #wander：返回 true 表示正常爬完落地，false 表示中途被打断。
@@ -559,13 +571,14 @@ export class WebPet extends HTMLElement {
     if (this.#suppressClick) { this.#suppressClick = false; return; }
     clearTimeout(this.#clickTimer);
     this.#clickTimer = setTimeout(() => {
-      const states = ['idle', 'walk', 'run', 'lie', 'loaf', 'groom', 'sleep2', 'sleep', 'stretch', 'play', 'watch', 'climb'];
-      // 从哪一个姿态往下推进：当前姿态是"真姿态"就从它推进（让点击跟着眼前看到的
-      // 走），但 idle 只是动作之间的过渡态，drag / react / fall 更不在循环里
-      // （indexOf 返回 -1，+1 之后正好又落回 idle）。这些情况都从上次点选的位置
-      // 继续，否则会卡死：walk 最短 0.72 秒就走完并回到 idle，手速稍慢，
-      // 下一次点击看到的就是 idle，于是又选中 walk，永远在 walk↔idle 之间打转。
-      const current = this.#state === 'idle' ? -1 : states.indexOf(this.#state);
+      // idle 不在循环里。它只是动作之间 0.2–0.5 秒的过渡：点到它，眨眼间自动调度器
+      // 就抽走了，下一次点击又从那个随机姿态重新对齐，整个循环被打乱。
+      // drag / react / fall 同理不在表里，indexOf 一律返回 -1。
+      const states = ['walk', 'run', 'lie', 'loaf', 'groom', 'sleep2', 'sleep', 'stretch', 'play', 'watch', 'climb'];
+      // 当前是真姿态就从它推进（点击跟着眼前看到的走）；处于过渡态时从上次点选的
+      // 位置继续，否则会卡死：walk 最短 0.72 秒就走完并回到 idle，手速稍慢，
+      // 下一次点击看到的就是过渡态。
+      const current = states.indexOf(this.#state);
       const from = current >= 0 ? current : states.indexOf(this.#clickPose);
       const next = states[(from + 1) % states.length];
       this.#clickPose = next;
