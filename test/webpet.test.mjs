@@ -213,6 +213,19 @@ if (rNear < 0 || rNear > 1 || rFar < 0 || rFar > 1) {
     `抽签 ${draws} 次，走了 ${walked}px${gotWalk ? '' : '（未进入 walk）'}`);
 }
 
+// 点击游标：walk 最短 0.72 秒就走完并自动回到 idle。手速稍慢，下一次点击看到的就是
+// idle，若从 idle 推进就又会选中 walk —— 永远在 walk↔idle 之间打转，点不到后面的姿态。
+// 不要等自动调度器自己把宠物换走：它可能换到一个真姿态，游标就从那儿重新对齐，
+// 用例会侥幸通过。直接 play('idle') 还原"走完自动回到过渡态"这一幕。
+check('点进 walk 作为游标起点', await clickUntil('walk'), `state=${state(pet)}`);
+await sleep(200);
+await pet.play('idle');
+await sleep(150);
+pointer(pet, 'click', {});
+await sleep(500);
+check('从过渡态 idle 再点击不会又选中 walk',
+  state(pet) !== 'walk', `idle --点击--> ${state(pet)}`);
+
 // 走路途中切到静止姿态：位移必须立刻停，姿态也不能被 #wander 覆盖回 idle。
 check('第三次进入 walk', await clickUntil('walk'), `state=${state(pet)}`);
 await sleep(250);

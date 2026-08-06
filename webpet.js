@@ -172,6 +172,8 @@ export class WebPet extends HTMLElement {
   #throw = null;
   #throwTimer = 0;
   #clickTimer = 0;
+  // 单击循环的游标：记住上一次点选的姿态，用于宠物已经走回过渡态时接着往下推进。
+  #clickPose = 'idle';
   #bound = false;
   #loaded = new Set();
   #motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
@@ -456,7 +458,10 @@ export class WebPet extends HTMLElement {
     await new Promise((resolve) => {
       this.#moveResolve = resolve;
       const step = (now) => {
-        const delta = Math.min(40, now - last) / 1000;
+        // 下限必须夹住：Math.min(40, 负数) 还是负数，一帧就能把宠物反向弹出几百像素。
+        // 真实浏览器里 performance.now() 与 rAF 时间戳同源不会为负，但时钟回拨、
+        // 跨文档计时（如测试环境）都可能触发。
+        const delta = Math.min(40, Math.max(0, now - last)) / 1000;
         last = now;
         this.#y -= 83 * delta;
         if (this.#y <= baseY - climbDist) { this.#moveResolve = null; resolve(); return; }
@@ -523,7 +528,10 @@ export class WebPet extends HTMLElement {
     await new Promise((resolve) => {
       this.#moveResolve = resolve;
       const step = (now) => {
-        const delta = Math.min(40, now - last) / 1000;
+        // 下限必须夹住：Math.min(40, 负数) 还是负数，一帧就能把宠物反向弹出几百像素。
+        // 真实浏览器里 performance.now() 与 rAF 时间戳同源不会为负，但时钟回拨、
+        // 跨文档计时（如测试环境）都可能触发。
+        const delta = Math.min(40, Math.max(0, now - last)) / 1000;
         last = now;
         this.#x += direction * speed * delta;
         if ((direction > 0 && this.#x >= target) || (direction < 0 && this.#x <= target)) {
@@ -552,7 +560,15 @@ export class WebPet extends HTMLElement {
     clearTimeout(this.#clickTimer);
     this.#clickTimer = setTimeout(() => {
       const states = ['idle', 'walk', 'run', 'lie', 'loaf', 'groom', 'sleep2', 'sleep', 'stretch', 'play', 'watch', 'climb'];
-      const next = states[(states.indexOf(this.#state) + 1) % states.length];
+      // 从哪一个姿态往下推进：当前姿态是"真姿态"就从它推进（让点击跟着眼前看到的
+      // 走），但 idle 只是动作之间的过渡态，drag / react / fall 更不在循环里
+      // （indexOf 返回 -1，+1 之后正好又落回 idle）。这些情况都从上次点选的位置
+      // 继续，否则会卡死：walk 最短 0.72 秒就走完并回到 idle，手速稍慢，
+      // 下一次点击看到的就是 idle，于是又选中 walk，永远在 walk↔idle 之间打转。
+      const current = this.#state === 'idle' ? -1 : states.indexOf(this.#state);
+      const from = current >= 0 ? current : states.indexOf(this.#clickPose);
+      const next = states[(from + 1) % states.length];
+      this.#clickPose = next;
       if (next === 'climb') this.#climb().then((done) => { if (done) this.#schedule(); });
       else if (next === 'walk' || next === 'run') this.#wander(next).then((done) => { if (done) this.#schedule(); });
       else this.#play(next).then(() => this.#scheduleAfterPose(next));
