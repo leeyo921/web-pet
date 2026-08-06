@@ -103,7 +103,27 @@ WEBPET_DIR=~/code/pawra-saas/public/webpet node scripts/export-webpet-assets.mjs
 
 ### 姿态停留时长
 
-动画姿态用 `cycleMs`（正好放完一轮）决定停留多久。`hold: true` 的静止姿态没有
-`cycleMs`，改用 `holdMs`；manifest 不写 `holdMs` 时回退到 `webpet.js` 里的
-`HOLD_DURATIONS` 默认值（睡觉 9s、农民揣 6s）。两者都没有的姿态只会停留调度器
-的 1–3 秒过渡，对静止姿态来说太短——睡觉的 zzz 动画一轮就要 2.8 秒。
+在 `webpet.js` 的 `DURATIONS` 里，与桌面端 DeskPet 的 `DURATIONS`（`src/main.js`）
+逐项对齐。这是**行为参数不是素材参数**，所以和桌面端一样放代码里，不进 manifest。
+
+| 姿态 | 停留 | | 姿态 | 停留 |
+|---|---|---|---|---|
+| sleep / sleep2 | 20–45s | | groom | 6.5–12s |
+| lie / loaf | 8–20s | | play | 5–9s |
+| watch | 6–15s | | stretch | 4s |
+| nuzzle | 4.1–4.3s | | idle（过渡） | 1–3s |
+
+多帧姿态在这段时间里持续循环。`cycleMs` 只决定一轮动画多长，不再兼任停留时长——
+早期版本两者混用，等于每个姿态只播一遍就走，睡觉睡 3 秒、理毛只梳一遍。
+
+### 游荡距离
+
+`MIN_WANDER_DIST`：walk 至少 60px、run 至少 200px，同 DeskPet。目标点抽太近就重抽，
+抽 8 次仍然太近说明视口里没地方可走，放弃游荡改成 idle。没有这个下限时随机目标
+可能就落在脚边，表现为"刚走两步就切换姿态"。
+
+### 地面基线
+
+舞台底边就是地面，但素材主体未必贴着画布底边（loaf 底部留白 3.7%、watch 2.4%），
+直接摆会浮空 3px 左右。导出脚本把每帧的底部留白比例写成 `groundPad`，组件按它把
+画布往下压，各姿态的脚才落在同一条线上。

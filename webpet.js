@@ -9,10 +9,33 @@ const AUTO_POSE_WEIGHTS = [
   ['groom', 6], ['stretch', 6], ['watch', 6],
 ];
 
-// hold 态没有帧动画，manifest 也不给 cycleMs，于是 #scheduleAfterPose 会直接
-// 落回 #schedule() 的 1–3 秒过渡里 —— 睡觉的 zzz 一轮 2.8s 都放不完就被换走。
-// 这里给一组停留时长；manifest 里的 holdMs 优先，没有才用这份默认值。
-const HOLD_DURATIONS = { sleep: 9000, sleep2: 9000, loaf: 6000 };
+// 姿态停留时长（毫秒区间），与桌面端 deskpet 的 DURATIONS 逐项对齐
+// （deskpet/src/main.js）。这是行为参数不是素材参数，跟桌面端一样放代码里，不进 manifest。
+//
+// 之前 webpet 拿 cycleMs（一轮动画的长度）当停留时长，等于每个姿态只播一遍就走；
+// 没有 cycleMs 的静止姿态更是只停 #schedule 的 1–3 秒过渡。睡觉睡 3 秒、理毛只梳
+// 一遍就起身，都不合理。
+// idle 不列在这里：它是动作之间的过渡（deskpet 叫 bridge），时长由 #schedule 的
+// 1–3 秒承担，两处都写会叠成 2–6 秒。
+const DURATIONS = {
+  sleep: [20000, 45000],
+  sleep2: [20000, 45000],
+  lie: [8000, 20000],
+  loaf: [8000, 20000],
+  // 至少播完一整套梳理动作再离开
+  groom: [6500, 12000],
+  // 一次性动作：时长必须正好覆盖完整时间轴，不能提前切走
+  stretch: [4000, 4000],
+  watch: [6000, 15000],
+  play: [5000, 9000],
+  nuzzle: [4100, 4300],
+};
+
+// 游荡的最短距离，同 deskpet：目标点离当前位置太近就重抽，抽 8 次仍太近就放弃改
+// 成 idle。没有这个下限时随机目标可能就落在脚边，于是"刚走两步就切换"。
+const MIN_WANDER_DIST = { walk: 60, run: 200 };
+
+function rand([lo, hi]) { return lo + Math.random() * (hi - lo); }
 
 const template = document.createElement('template');
 template.innerHTML = `
@@ -325,6 +348,10 @@ export class WebPet extends HTMLElement {
     height *= fit;
     this.#stage.style.width = `${Math.round(width)}px`;
     this.#stage.style.height = `${Math.round(height)}px`;
+    // 地面基线对齐：舞台底边就是地面，但素材主体未必贴着画布底边（loaf 留白 3.7%、
+    // watch 2.4%），直接摆就会浮空。把画布往下压掉这段留白，各姿态的脚才落在同一
+    // 条线上。老 manifest 没有 groundPad 时退化成原来的行为。
+    this.#stage.style.bottom = `${-Math.round((frame.groundPad || 0) * height)}px`;
     this.#sprite.src = new URL(frame.src, COMPONENT_URL);
     this.#sprite.alt = `雪爪桌宠：${state}`;
     // 姿态切换只替换舞台尺寸，不重新校正宿主位置；否则非移动姿态会
@@ -368,10 +395,11 @@ export class WebPet extends HTMLElement {
   }
 
   #scheduleAfterPose(state) {
-    const config = this.#manifest.states[state];
-    // hold 态用 holdMs / HOLD_DURATIONS，动画态用 cycleMs（正好一轮）。
-    const cycleMs = Number(config?.cycleMs || 0)
-      || Number(config?.holdMs || HOLD_DURATIONS[state] || 0);
+    // 停留时长优先用 DURATIONS（与桌面端对齐）；表里没有的姿态退回一轮动画长度。
+    // 多帧姿态在这段时间里会一直循环，不再播一遍就走。
+    const cycleMs = DURATIONS[state]
+      ? Math.round(rand(DURATIONS[state]))
+      : Number(this.#manifest.states[state]?.cycleMs || 0);
     if (cycleMs <= 0) {
       this.#schedule();
       return;
@@ -477,8 +505,17 @@ export class WebPet extends HTMLElement {
     await this.#play(state);
     const generation = this.#playGeneration;
     const width = this.#stage.offsetWidth || 180;
-    const target = 12 + width / 2
+    const pickTarget = () => 12 + width / 2
       + Math.random() * Math.max(1, innerWidth - width - 24);
+    // 目标点必须离得够远，否则走两步就到了、立刻换姿态。同 deskpet：重抽最多 8 次，
+    // 仍然太近就说明视口里没地方可走，放弃游荡改成 idle。
+    const minDist = MIN_WANDER_DIST[state] || 0;
+    let target = this.#x;
+    for (let i = 0; i < 8 && Math.abs(target - this.#x) < minDist; i++) target = pickTarget();
+    if (Math.abs(target - this.#x) < minDist) {
+      await this.#play('idle');
+      return true;
+    }
     const direction = target < this.#x ? -1 : 1;
     this.setAttribute('direction', direction < 0 ? 'left' : 'right');
     const speed = state === 'run' ? 250 : 83;
